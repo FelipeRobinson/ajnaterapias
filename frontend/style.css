@@ -1,7 +1,19 @@
-root {
-
+:root {
+    --white: #fff;
+    --ajna: rgb(120, 0, 180);
+    --alinhado-reto: flex;
 }
 
 body {
-    background-color: #fff;
+    background-color: var(--white);
+    margin: 0;
+}
+
+nav {
+    display: var(--alinhado-reto);
+    justify-content: space-around;
+    gap: 30px;
+    background-color: rgba(120, 0, 180);
+    width: 100%;
+    height: 100px;
 }
