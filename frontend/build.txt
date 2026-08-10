@@ -1,9 +1,11 @@
 Projeto: CRM + STATIC SITE
 
+
 - Construir um site onde ela possa vender, ter um site
 e possa gerenciar suas vendas, seus paciêntes, sua 
 agenda e toda a estrutura de análise da ficha tecnica
 do paciente.
+
 
 Eu pensei inicialmente em fazer um site HTML, com banco
 de dado integrado nele, por exemplo um DBeaver com JS, e
@@ -14,6 +16,7 @@ a fazer um HTML + um Python, substituindo o node, e fazer
 um BD em PostgreSQL. com o banco online no Supabase e fazer
 uma hospedagem no Render.
 
+
 Frontend: HTML + CSS + JavaScript + Bootstrap
 Backend: Python + Flask
 Banco: PostgreSQL
@@ -22,7 +25,19 @@ Banco online: Supabase
 Código: GitHub
 Editor: VS Code
 
+
 Hoje é dia 07/08 e eu inicío esse projeto. A meta é focar nele
 e terminar até o final de agosto o static site. E até o final
 de setembro o BD com a aplicação Pyhon. Aniversário dela é dia
 27/9.
+
+
+Informações para o BD:
+- Calendário com o horário do paciente (agenda mensal/semanal)
+- Catálogo de pacientes
+   - Protocólogo do Paciente
+   - Prontuário do paciente
+   - Ficha de Anamnese
+   - Financeiro
+- "Acupuntura Shein" ou "" - Lista de consulta de Acupuntura
+- Financeiro
