@@ -3,6 +3,12 @@
     --ajna: rgb(120, 0, 180);
 }
 
+body {
+    font-family: system-ui, sans-serif;
+    font-size: clamp(.85rem, 1.1vw, 1rem);
+    line-height: 1.5;
+}
+
 .topbar {
     transition: background-color .3s ease, backdrop-filter .3s ease;
 }
@@ -21,7 +27,6 @@
 
 .topbar .nav-link {
     color: var(--white);
-    font-family: system-ui, sans-serif;
     font-size: clamp(.85rem, 1.1vw, 1rem);
     position: relative;
     transition: color .25s ease;
@@ -101,8 +106,8 @@
     animation: hero-logo-arrival 2.4s cubic-bezier(.16, .84, .32, 1) both;
     height: auto;
     inset: auto;
-    max-height: min(48vh, 390px);
-    max-width: min(72vw, 620px);
+    max-height: min(60vh, 500px);
+    max-width: min(90vw, 795px);
     object-fit: contain;
     position: relative;
     width: auto;
