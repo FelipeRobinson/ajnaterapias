@@ -1,27 +1,16 @@
 const bar = document.querySelector('.topbar');
-const toggle = document.querySelector('.topbar__toggle');
-const links = document.querySelectorAll('.topbar__links a');
-const menu = document.querySelector('.topbar__links');
+const menu = document.querySelector('#menu');
+const links = document.querySelectorAll('#menu .nav-link');
 const sections = [...links]
     .map(link => document.querySelector(link.getAttribute('href')))
     .filter(Boolean);
 
-const closeMenu = () => {
-    menu.classList.remove('is-open');
-    toggle.classList.remove('is-open');
-    toggle.setAttribute('aria-expanded', 'false');
-};
-
-toggle.addEventListener('click', () => {
-    const isOpen = menu.classList.toggle('is-open');
-    toggle.classList.toggle('is-open', isOpen);
-    toggle.setAttribute('aria-expanded', String(isOpen));
-});
-
 links.forEach(link => link.addEventListener('click', () => {
     links.forEach(item => item.classList.remove('is-active'));
     link.classList.add('is-active');
-    closeMenu();
+    if (window.matchMedia('(max-width: 767.98px)').matches) {
+        bootstrap.Offcanvas.getOrCreateInstance(menu).hide();
+    }
 }));
 
 const updateActiveLink = () => {
