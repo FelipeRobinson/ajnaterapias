@@ -7,22 +7,33 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <nav>
-        <img src="./img/logo.png" alt="Logo da Ajna Terapias" class="logo">
-        <a href="index.html">Início</a>
-        <a href="sobre.html">Sobre</a>
-        <a href="servicos.html">Serviços</a>
-        <a href="contato.html">Contato</a>
+    <nav class="topbar" aria-label="Navegação principal">
+        <a href="#inicio" class="topbar__brand" aria-label="Ajna Terapias - Início">
+            <img src="./img/logo.png" alt="Logo da Ajna Terapias">
+        </a>
+        <div class="topbar__links" id="menu">
+            <a href="#inicio" class="is-active">Início</a>
+            <a href="#sobre">Sobre</a>
+            <a href="#servicos">Serviços</a>
+            <a href="#contato">Contato</a>
+        </div>
+        <button class="topbar__toggle" type="button" aria-label="Abrir menu" aria-controls="menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
     </nav>
-    <img src="./img/logo.png" alt="Logo da Ajna Terapias" class="logo">
-    <img src="./img/Fundo.png" alt="Fundo da Ajna Terapias" class="fundo" width="50%" height="auto">
+    <section class="hero" id="inicio" aria-label="Ajna Terapias">
+        <img src="./img/Fundo.png" alt="" class="hero__background hero__background--one">
+        <img src="./img/Fundo.png" alt="" class="hero__background hero__background--two">
+        <div class="hero__overlay"></div>
+        <img src="./img/logo.png" alt="Logo da Ajna Terapias" class="hero__logo">
+    </section>
 
     <section class="conteudo1">
         <h1>Bem-vindo à Ajna Terapias</h1>
         <p>Oferecemos uma variedade de terapias para o seu bem-estar.</p>
     </section>
 
-    <section class="conteudo2">
+    <section class="conteudo2" id="servicos">
         <h2>Nossos Serviços</h2>
         <li>Terapia de Massagem</li>
         <li>Acupuntura</li>
@@ -30,13 +41,13 @@
         <li>Aromaterapia</li>
     </section>
 
-    <section class="conteudo3">
+    <section class="conteudo3" id="contato">
         <h2>Contato</h2>
         <p>Entre em contato conosco para agendar uma sessão ou tirar dúvidas.</p>
         <a href="contato.html" class="botao">Fale Conosco</a>
     </section>
 
-    <section class="conteudo4">
+    <section class="conteudo4" id="sobre">
         <h2>Sobre Nós</h2>
         <p>A Ajna Terapias é dedicada a promover o bem-estar e a saúde através de terapias naturais e holísticas.</p>
         <a href="sobre.html" class="botao">Saiba Mais</a>
@@ -45,5 +56,6 @@
     <footer>
         <p>&copy; 2026 Ajna Terapias. Todos os direitos reservados.</p>
     </footer>
+    <script src="./script/script.js"></script>
 </body>
 </html>
