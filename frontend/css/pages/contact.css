@@ -1,0 +1,253 @@
+.contact-section#contato {
+    scroll-margin-top: 0;
+}
+
+.contact-section {
+    align-content: center;
+    background: linear-gradient(180deg, #071c26 0%, #091721 52%, #100718 100%);
+    display: grid;
+    isolation: isolate;
+    overflow: hidden;
+    padding: clamp(5rem, 10vh, 8rem) clamp(1.25rem, 8vw, 8rem) clamp(2rem, 5vh, 4rem);
+    position: relative;
+}
+
+.contact-section__glow {
+    background: radial-gradient(circle, rgba(134, 212, 216, .16), transparent 66%);
+    border: 1px solid rgba(134, 212, 216, .12);
+    border-radius: 50%;
+    height: min(55vw, 48rem);
+    left: -18rem;
+    pointer-events: none;
+    position: absolute;
+    top: -20rem;
+    width: min(55vw, 48rem);
+    z-index: -1;
+}
+
+.contact-section__intro {
+    margin: 0 auto clamp(2rem, 5vh, 4rem);
+    max-width: 950px;
+    text-align: center;
+}
+
+.contact-section__eyebrow,
+.contact-channel__content small {
+    color: #8edce0;
+    font-size: .75rem;
+    font-weight: 750;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+}
+
+.contact-section__intro h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(3rem, 5vw, 6rem);
+    font-weight: 400;
+    letter-spacing: -.05em;
+    line-height: .98;
+    margin: .8rem 0 1.25rem;
+}
+
+.contact-section__intro h2 em {
+    color: #dca6ff;
+    font-weight: 400;
+}
+
+.contact-section__intro p {
+    color: rgba(255, 255, 255, .66);
+    font-size: clamp(1rem, 1.2vw, 1.2rem);
+    margin: auto;
+    max-width: 680px;
+}
+
+.contact-section__channels {
+    display: grid;
+    gap: clamp(1rem, 2vw, 2rem);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0 auto;
+    max-width: 1250px;
+    width: 100%;
+}
+
+.contact-channel {
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 24px;
+    color: #fff;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    min-height: clamp(250px, 31vh, 330px);
+    overflow: hidden;
+    padding: clamp(1.4rem, 3vw, 2.6rem);
+    position: relative;
+    text-decoration: none;
+    transition: border-color .3s ease, transform .3s ease, background .3s ease;
+}
+
+.contact-channel::after {
+    background: radial-gradient(circle, rgba(220, 166, 255, .16), transparent 68%);
+    border-radius: 50%;
+    bottom: -9rem;
+    content: "";
+    height: 18rem;
+    position: absolute;
+    right: -8rem;
+    transition: transform .5s ease;
+    width: 18rem;
+}
+
+.contact-channel--whatsapp::after {
+    background: radial-gradient(circle, rgba(72, 210, 166, .17), transparent 68%);
+}
+
+.contact-channel:hover,
+.contact-channel:focus-visible {
+    background: rgba(255, 255, 255, .07);
+    border-color: rgba(220, 166, 255, .38);
+    color: #fff;
+    transform: translateY(-7px);
+}
+
+.contact-channel:hover::after {
+    transform: translate(-1rem, -1rem) scale(1.15);
+}
+
+.contact-channel__number {
+    color: rgba(255, 255, 255, .4);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    position: absolute;
+    right: 1.5rem;
+    top: 1.4rem;
+}
+
+.contact-channel__icon {
+    align-items: center;
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid rgba(255, 255, 255, .13);
+    border-radius: 50%;
+    display: flex;
+    font-size: 2rem;
+    height: 4.5rem;
+    justify-content: center;
+    margin-right: 1.5rem;
+    width: 4.5rem;
+}
+
+.contact-channel--whatsapp .contact-channel__icon {
+    color: #78dfbd;
+}
+
+.contact-channel--instagram .contact-channel__icon {
+    color: #e3afff;
+}
+
+.contact-channel__content {
+    display: flex;
+    flex-direction: column;
+}
+
+.contact-channel__content strong {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(2rem, 3vw, 3.5rem);
+    font-weight: 400;
+    line-height: 1;
+    margin: .6rem 0 .85rem;
+}
+
+.contact-channel__content > span {
+    color: rgba(255, 255, 255, .6);
+    line-height: 1.65;
+    max-width: 420px;
+}
+
+.contact-channel__action {
+    align-items: center;
+    align-self: end;
+    color: #fff;
+    display: flex;
+    font-weight: 700;
+    gap: .65rem;
+    grid-column: 1 / -1;
+    margin-top: 1.5rem;
+}
+
+.contact-section__handle {
+    color: rgba(255, 255, 255, .48);
+    font-size: .85rem;
+    letter-spacing: .08em;
+    margin: clamp(1.5rem, 4vh, 3rem) auto 0;
+}
+
+@media (max-width: 767.98px) {
+    .contact-section {
+        padding: 4.75rem 1rem 1.25rem;
+    }
+
+    .contact-section__intro {
+        margin-bottom: 1.25rem;
+    }
+
+    .contact-section__intro h2 {
+        font-size: clamp(2.4rem, 10vw, 3.6rem);
+        margin-block: .45rem .75rem;
+    }
+
+    .contact-section__channels {
+        gap: .75rem;
+        grid-template-columns: 1fr;
+    }
+
+    .contact-channel {
+        min-height: 190px;
+        padding: 1.25rem;
+    }
+
+    .contact-channel__icon {
+        font-size: 1.5rem;
+        height: 3.5rem;
+        margin-right: 1rem;
+        width: 3.5rem;
+    }
+
+    .contact-channel__content strong {
+        font-size: 2rem;
+    }
+
+    .contact-channel__content > span {
+        font-size: .8rem;
+    }
+
+    .contact-channel__action {
+        font-size: .8rem;
+        margin-top: .75rem;
+    }
+
+    .contact-section__handle {
+        margin-top: 1rem;
+    }
+}
+
+@media (max-height: 740px) {
+    .contact-section__intro {
+        margin-bottom: 1rem;
+    }
+
+    .contact-section__intro p,
+    .contact-section__handle {
+        display: none;
+    }
+
+    .contact-channel {
+        min-height: 190px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contact-channel,
+    .contact-channel::after {
+        transition: none;
+    }
+}

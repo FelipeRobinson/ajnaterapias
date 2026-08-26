@@ -1,0 +1,209 @@
+.site-footer {
+    background:
+        radial-gradient(circle at 12% 25%, rgba(137, 34, 184, .22), transparent 25rem),
+        #0d0012;
+    border-top: 1px solid rgba(220, 166, 255, .18);
+    color: rgba(255, 255, 255, .68);
+    padding: clamp(3rem, 6vw, 5.5rem) clamp(1.25rem, 6vw, 6rem) 1.5rem;
+}
+
+.site-footer a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.footer__cards {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(3, 1fr);
+    margin: 0 auto 1.75rem;
+    max-width: 1280px;
+}
+
+.footer-card {
+    align-items: center;
+    background: linear-gradient(145deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .025));
+    border: 1px solid rgba(220, 166, 255, .2);
+    border-radius: 18px;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: auto 1fr auto;
+    min-height: 160px;
+    overflow: hidden;
+    padding: 1.5rem;
+    position: relative;
+    transition: border-color .25s ease, transform .25s ease, background .25s ease;
+}
+
+.footer-card:hover,
+.footer-card:focus-visible {
+    background: linear-gradient(145deg, rgba(220, 166, 255, .13), rgba(255, 255, 255, .035));
+    border-color: rgba(220, 166, 255, .55);
+    color: #fff;
+    transform: translateY(-5px);
+}
+
+.footer-card__number {
+    color: rgba(220, 166, 255, .6);
+    font-size: .65rem;
+    font-weight: 700;
+    left: 1rem;
+    letter-spacing: .12em;
+    position: absolute;
+    top: .85rem;
+}
+
+.footer-card__icon {
+    align-items: center;
+    background: rgba(220, 166, 255, .11);
+    border: 1px solid rgba(220, 166, 255, .22);
+    border-radius: 50%;
+    color: #dca6ff;
+    display: flex;
+    height: 48px;
+    justify-content: center;
+    width: 48px;
+}
+
+.footer-card__icon i,
+.footer__socials i {
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.footer-card__text {
+    display: grid;
+    gap: .25rem;
+}
+
+.footer-card__text strong {
+    color: #fff;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.35rem;
+    font-weight: 400;
+}
+
+.footer-card__text small {
+    line-height: 1.45;
+}
+
+.footer-card__arrow {
+    color: #dca6ff;
+    font-size: 1.4rem;
+    transition: transform .25s ease;
+}
+
+.footer-card:hover .footer-card__arrow,
+.footer-card:focus-visible .footer-card__arrow {
+    transform: translate(3px, -3px);
+}
+
+.footer__bottom {
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, .1);
+    display: flex;
+    justify-content: space-between;
+    padding-top: 2rem;
+}
+
+.footer__signature,
+.footer__actions,
+.footer__socials {
+    align-items: center;
+    display: flex;
+}
+
+.footer__signature {
+    gap: 1.2rem;
+}
+
+.footer__signature img {
+    height: 56px;
+    object-fit: contain;
+    width: 56px;
+}
+
+.footer__divider {
+    background: rgba(220, 166, 255, .4);
+    height: 46px;
+    width: 1px;
+}
+
+.footer__signature p {
+    font-size: .96rem;
+    margin: 0;
+}
+
+.footer__actions {
+    gap: clamp(1rem, 3vw, 2.5rem);
+}
+
+.footer__socials {
+    gap: .5rem;
+}
+
+.footer__socials a {
+    align-items: center;
+    border: 1px solid rgba(220, 166, 255, .22);
+    border-radius: 50%;
+    color: #dca6ff;
+    display: flex;
+    height: 48px;
+    justify-content: center;
+    transition: background .2s ease, color .2s ease;
+    width: 48px;
+}
+
+.footer__socials i {
+    font-size: 1.5rem;
+}
+
+.footer__socials a:hover,
+.footer__socials a:focus-visible {
+    background: #dca6ff;
+    color: #21002e;
+}
+
+.footer__professional {
+    color: #dca6ff !important;
+    font-size: 1rem;
+}
+
+.footer__professional:hover,
+.footer__professional:focus-visible {
+    color: #fff !important;
+}
+
+@media (max-width: 900px) {
+    .footer__cards {
+        grid-template-columns: 1fr;
+    }
+
+    .footer-card {
+        min-height: 125px;
+    }
+}
+
+@media (max-width: 600px) {
+    .site-footer {
+        padding-top: 2.5rem;
+    }
+
+    .footer__bottom,
+    .footer__actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .footer__bottom {
+        gap: 1.5rem;
+    }
+
+    .footer__signature {
+        align-items: flex-start;
+    }
+
+    .footer__signature p {
+        max-width: 220px;
+    }
+}

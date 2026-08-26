@@ -1,0 +1,81 @@
+:root {
+    --white: #fff;
+    --ajna: rgb(120, 0, 180);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    scrollbar-color: #bd72e2 #16001f;
+    scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: #16001f;
+    border-left: 1px solid rgba(220, 166, 255, .1);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #e3afff, #9b42c7 55%, #68218e);
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #f0d1ff, #c267ed 55%, #8434ad);
+    background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+    background: #16001f;
+}
+
+body {
+    background: #120018;
+    color: var(--white);
+    font-family: system-ui, sans-serif;
+    font-size: clamp(.85rem, 1.1vw, 1rem);
+    line-height: 1.5;
+    margin: 0;
+}
+
+body > section {
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden;
+}
+
+#inicio,
+#historia,
+#sobre,
+#servicos,
+#contato {
+    scroll-margin-top: 84px;
+}
+
+.conteudo2,
+.conteudo3,
+.conteudo4 {
+    align-content: center;
+    display: grid;
+    padding: clamp(4rem, 8vw, 8rem) clamp(1.25rem, 8vw, 8rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}

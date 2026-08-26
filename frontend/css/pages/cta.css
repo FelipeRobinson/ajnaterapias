@@ -1,0 +1,256 @@
+.care-cta#sobre {
+    scroll-margin-top: 0;
+}
+
+.care-cta {
+    align-content: center;
+    background:
+        radial-gradient(circle at 82% 28%, rgba(174, 81, 215, .13), transparent 30rem),
+        linear-gradient(180deg, #100718 0%, #16001f 100%);
+    display: grid;
+    overflow: hidden;
+    padding: clamp(5rem, 10vh, 8rem) clamp(1.25rem, 7vw, 7rem) clamp(2rem, 5vh, 4rem);
+}
+
+.care-cta__card {
+    align-items: center;
+    background:
+        linear-gradient(120deg, rgba(16, 5, 25, .98) 0%, rgba(47, 10, 63, .97) 50%, rgba(115, 35, 146, .92) 100%);
+    border: 1px solid rgba(224, 177, 248, .25);
+    border-radius: 34px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .32);
+    display: grid;
+    gap: clamp(2.5rem, 6vw, 7rem);
+    grid-template-columns: minmax(0, 1.15fr) minmax(330px, .85fr);
+    margin: auto;
+    max-width: 1500px;
+    min-height: clamp(430px, 58vh, 610px);
+    overflow: hidden;
+    padding: clamp(2.2rem, 5vw, 5rem);
+    position: relative;
+    width: 100%;
+}
+
+.care-cta__card::before {
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 26px;
+    content: "";
+    inset: 14px;
+    pointer-events: none;
+    position: absolute;
+}
+
+.care-cta__rings {
+    border: clamp(20px, 2.2vw, 36px) solid rgba(255, 255, 255, .07);
+    border-radius: 50%;
+    height: min(48vw, 46rem);
+    pointer-events: none;
+    position: absolute;
+    right: min(-20vw, -10rem);
+    top: 50%;
+    transform: translateY(-50%);
+    width: min(48vw, 46rem);
+}
+
+.care-cta__rings::before,
+.care-cta__rings::after {
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 50%;
+    content: "";
+    inset: 11%;
+    position: absolute;
+}
+
+.care-cta__rings::after {
+    inset: 25%;
+}
+
+.care-cta__message,
+.care-cta__actions {
+    position: relative;
+    z-index: 1;
+}
+
+.care-cta__eyebrow {
+    background: rgba(255, 255, 255, .11);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 999px;
+    color: #e9c2ff;
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+    padding: .55rem 1rem;
+    text-transform: uppercase;
+}
+
+.care-cta__message h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(3rem, 5vw, 6rem);
+    font-weight: 400;
+    letter-spacing: -.05em;
+    line-height: .98;
+    margin: 1.25rem 0 1.4rem;
+    max-width: 900px;
+}
+
+.care-cta__message h2 em {
+    color: #dca6ff;
+    font-weight: 400;
+}
+
+.care-cta__message p {
+    color: rgba(255, 255, 255, .68);
+    font-size: clamp(1rem, 1.25vw, 1.25rem);
+    line-height: 1.65;
+    margin: 0;
+    max-width: 680px;
+}
+
+.care-cta__actions {
+    display: grid;
+    gap: 1.35rem;
+}
+
+.care-cta__button {
+    align-items: center;
+    background: linear-gradient(135deg, #ead0fa, #d391f3);
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 999px;
+    box-shadow: 0 14px 0 rgba(10, 0, 16, .8), 0 24px 45px rgba(0, 0, 0, .25);
+    color: #240032;
+    display: flex;
+    font-size: clamp(1.1rem, 1.55vw, 1.55rem);
+    font-weight: 800;
+    gap: .85rem;
+    justify-content: center;
+    padding: 1.2rem 1.6rem;
+    text-decoration: none;
+    transition: box-shadow .25s ease, transform .25s ease, filter .25s ease;
+}
+
+.care-cta__button:hover,
+.care-cta__button:focus-visible {
+    box-shadow: 0 8px 0 rgba(10, 0, 16, .8), 0 18px 35px rgba(0, 0, 0, .28);
+    color: #240032;
+    filter: brightness(1.06);
+    transform: translateY(6px);
+}
+
+.care-cta__benefits {
+    display: grid;
+    gap: .7rem;
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+}
+
+.care-cta__benefits li {
+    align-items: center;
+    background: rgba(11, 0, 17, .43);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 999px;
+    display: flex;
+    font-size: clamp(.88rem, 1.05vw, 1.05rem);
+    font-weight: 700;
+    gap: .85rem;
+    padding: .8rem 1.15rem;
+}
+
+.care-cta__benefits i {
+    color: #e2a9ff;
+    width: 1.2rem;
+}
+
+.care-cta__closing {
+    align-items: center;
+    color: rgba(255, 255, 255, .42);
+    display: flex;
+    font-size: .7rem;
+    gap: 1rem;
+    justify-content: center;
+    letter-spacing: .16em;
+    margin: clamp(1.5rem, 4vh, 3rem) auto 0;
+    max-width: 900px;
+    text-align: center;
+    text-transform: uppercase;
+    width: 100%;
+}
+
+.care-cta__closing span {
+    background: rgba(220, 166, 255, .28);
+    height: 1px;
+    width: min(12vw, 9rem);
+}
+
+@media (max-width: 767.98px) {
+    .care-cta {
+        padding: 4.75rem 1rem 1.25rem;
+    }
+
+    .care-cta__card {
+        align-content: center;
+        border-radius: 24px;
+        gap: 1.75rem;
+        grid-template-columns: 1fr;
+        min-height: 0;
+        padding: 2rem 1.5rem;
+    }
+
+    .care-cta__card::before {
+        border-radius: 18px;
+        inset: 8px;
+    }
+
+    .care-cta__message h2 {
+        font-size: clamp(2.45rem, 10.5vw, 3.8rem);
+        margin-block: .85rem 1rem;
+    }
+
+    .care-cta__message p {
+        font-size: .88rem;
+    }
+
+    .care-cta__button {
+        box-shadow: 0 9px 0 rgba(10, 0, 16, .8);
+        font-size: 1rem;
+        padding: 1rem;
+    }
+
+    .care-cta__benefits {
+        gap: .45rem;
+        margin-top: .4rem;
+    }
+
+    .care-cta__benefits li {
+        font-size: .78rem;
+        padding: .62rem .85rem;
+    }
+
+    .care-cta__rings {
+        height: 30rem;
+        right: -20rem;
+        width: 30rem;
+    }
+}
+
+@media (max-height: 720px) {
+    .care-cta__card {
+        min-height: 0;
+    }
+
+    .care-cta__closing,
+    .care-cta__message p {
+        display: none;
+    }
+
+    .care-cta__message h2 {
+        font-size: clamp(2.4rem, 4.2vw, 4.5rem);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .care-cta__button {
+        transition: none;
+    }
+}

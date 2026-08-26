@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CRM | Ajna Terapias</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+
+<body class="crm-page">
+    <header class="crm-header">
+        <a class="brand" href="/">AJNA <span>TERAPIAS</span></a>
+        <button class="text-button" id="logout" type="button">Sair</button>
+    </header>
+    <main class="dashboard">
+        <p class="eyebrow">Administração</p>
+        <h1>Painel da clínica</h1>
+        <div class="stats">
+            <article>
+                <span>Pacientes ativos</span>
+                <strong id="patient-count">—</strong>
+            </article>
+            <article>
+                <span>Consultas registradas</span>
+                <strong id="appointment-count">—</strong>
+            </article>
+        </div>
+        <section class="patient-list">
+            <h2>Pacientes</h2>
+            <p class="helper">A lista e os prontuários só são carregados após a autorização de administrador.</p>
+            <div id="patients" aria-live="polite"></div>
+        </section>
+    </main>
+    <script src="/js/crm.js"></script>
+</body>
+
+</html>
