@@ -30,16 +30,6 @@
     transition: filter .25s ease, transform .25s ease;
 }
 
-.topbar .navbar-brand::after {
-    background: linear-gradient(90deg, transparent, #dca6ff, transparent);
-    bottom: -.25rem;
-    content: "";
-    height: 1px;
-    left: 8%;
-    position: absolute;
-    width: 84%;
-}
-
 .topbar .navbar-brand:hover,
 .topbar .navbar-brand:focus-visible {
     filter: brightness(1.18);
