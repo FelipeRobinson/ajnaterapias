@@ -4,28 +4,46 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>CRM | Ajna Terapias</title>
-    <link rel="stylesheet" href="/css/main.css">
+    <title>Entrar | Ajna Terapias</title>
+    <link rel="icon" href="../img/url_logo.png">
+    <link rel="stylesheet" href="../css/pages/login.css">
 </head>
 
-<body class="portal-page">
-    <main class="portal-card">
-        <a class="brand" href="/">AJNA <span>TERAPIAS</span></a>
-        <p class="eyebrow">Área restrita</p>
-        <h1>CRM da clínica</h1>
-        <p class="helper">Acesso exclusivo para administração autorizada.</p>
-        <form id="crm-login" class="form">
-            <label>E-mail
-                <input name="email" type="email" autocomplete="email" required>
-            </label>
-            <label>Senha
-                <input name="password" type="password" autocomplete="current-password" required>
-            </label>
-            <p class="error" id="form-error" role="alert"></p>
-            <button class="button" type="submit">Entrar com segurança</button>
-        </form>
+<body class="login">
+    <aside class="login__brand">
+        <a class="login__logo" href="../../index.html"><img src="../img/logo (1).png" alt="Ajna Terapias"></a>
+        <div class="login__quote">
+            <h2>Seu espaço de cuidado, a um clique.</h2>
+            <p>Acompanhe suas sessões e mantenha contato com a clínica em um ambiente seguro.</p>
+        </div>
+        <a class="login__back" href="../../index.html">← Voltar ao site</a>
+    </aside>
+
+    <main class="login__panel">
+        <div class="login__card">
+            <span class="login__eyebrow">Área restrita</span>
+            <h1>Bem-vindo de volta</h1>
+            <p class="login__helper">Entre com o e-mail e a senha fornecidos pela clínica.</p>
+
+            <form id="login-form" class="login__form" novalidate>
+                <label class="login__field">E-mail
+                    <input name="email" type="email" autocomplete="email" placeholder="voce@email.com" required>
+                </label>
+                <label class="login__field">Senha
+                    <span class="login__password">
+                        <input id="password" name="password" type="password" autocomplete="current-password" required>
+                        <button class="login__toggle" type="button" data-toggle-password aria-controls="password">Mostrar</button>
+                    </span>
+                </label>
+                <p class="login__error" id="form-error" role="alert"></p>
+                <button class="login__submit" type="submit">Entrar</button>
+            </form>
+
+            <p class="login__foot">Esqueceu a senha? Fale com a clínica para redefini-la.</p>
+        </div>
     </main>
-    <script src="/js/crm.js"></script>
+
+    <script src="../script/js/crm.js"></script>
 </body>
 
 </html>

@@ -1,24 +1,27 @@
-from flask import Blueprint, current_app, send_from_directory
+from flask import Blueprint, current_app, redirect, send_from_directory
 
 public_bp = Blueprint("public", __name__)
 
 
 @public_bp.get("/")
+@public_bp.get("/index.html")
 def home():
-    return send_from_directory(current_app.static_folder, "index.html")
+    return send_from_directory(current_app.config["PROJECT_ROOT"], "index.html")
 
 
-@public_bp.get("/agenda")
-def agenda():
-    return send_from_directory(current_app.static_folder, "agenda.html")
-
-
+# Endereços curtos redirecionam para o arquivo real, para que os caminhos
+# relativos (../css, ../img) funcionem igual no servidor e abrindo o arquivo direto.
+@public_bp.get("/login")
 @public_bp.get("/crm")
-def crm_login():
-    return send_from_directory(current_app.static_folder, "crm/login.html")
+def login_page():
+    return redirect("/frontend/crm/login.html")
 
 
 @public_bp.get("/crm/painel")
 def crm_panel():
-    return send_from_directory(current_app.static_folder, "crm/painel.html")
+    return redirect("/frontend/crm/painel.html")
 
+
+@public_bp.get("/cliente")
+def client_area():
+    return redirect("/frontend/crm/cliente.html")

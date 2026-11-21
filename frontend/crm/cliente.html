@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Minha área | Ajna Terapias</title>
+    <link rel="stylesheet" href="../css/main.css">
+</head>
+
+<body class="crm-page">
+    <header class="crm-header">
+        <a class="brand" href="../../index.html">AJNA <span>TERAPIAS</span></a>
+        <button class="text-button" id="logout" type="button">Sair</button>
+    </header>
+    <main class="dashboard" data-page="patient">
+        <p class="eyebrow">Área do cliente</p>
+        <h1>Olá, <span id="client-name">—</span></h1>
+        <section class="patient-list">
+            <h2>Minhas consultas</h2>
+            <div id="appointments" aria-live="polite"></div>
+        </section>
+    </main>
+    <script src="../script/js/crm.js"></script>
+</body>
+
+</html>

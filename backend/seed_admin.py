@@ -1,26 +1,30 @@
-"""Cria ou atualiza o único perfil inicial de administrador."""
-import getpass
-import os
+"""Cria ou atualiza um acesso de administrador no banco SQLite.
 
-from dotenv import load_dotenv
-from pymongo import MongoClient
+Uso (na raiz do projeto):  python backend/seed_admin.py
+"""
+import getpass
+
 from werkzeug.security import generate_password_hash
 
-load_dotenv()
-uri = os.environ.get("MONGODB_URI")
-database_name = os.environ.get("MONGODB_DATABASE", "ajna_terapias")
-if not uri:
-    raise SystemExit("Defina MONGODB_URI no arquivo .env antes de criar o administrador.")
+from app import create_app
+from app.database import get_db
 
-email = input("E-mail do administrador: ").strip().lower()
-password = getpass.getpass("Senha: ")
-if not email or len(password) < 12:
-    raise SystemExit("Use um e-mail e uma senha com pelo menos 12 caracteres.")
+app = create_app()
+with app.app_context():
+    name = input("Nome do administrador: ").strip() or "Administrador"
+    email = input("E-mail do administrador: ").strip().lower()
+    password = getpass.getpass("Senha (mín. 12 caracteres): ")
+    if not email or len(password) < 12:
+        raise SystemExit("Use um e-mail e uma senha com pelo menos 12 caracteres.")
+    if getpass.getpass("Repita a senha: ") != password:
+        raise SystemExit("As senhas não conferem.")
 
-db = MongoClient(uri, tls=True)[database_name]
-db.users.update_one(
-    {"email": email},
-    {"$set": {"email": email, "password_hash": generate_password_hash(password), "role": "admin", "active": True}},
-    upsert=True,
-)
-print("Administrador criado/atualizado com sucesso.")
+    db = get_db()
+    db.execute(
+        """INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, 'admin')
+           ON CONFLICT(email) DO UPDATE SET name = excluded.name, password_hash = excluded.password_hash,
+                                            role = 'admin', active = 1""",
+        (name, email, generate_password_hash(password)),
+    )
+    db.commit()
+    print(f"Administrador {email} criado/atualizado em {app.config['DATABASE_PATH']}")

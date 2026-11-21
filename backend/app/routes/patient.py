@@ -10,29 +10,26 @@ patient_bp = Blueprint("patient", __name__)
 
 @patient_bp.get("/availability")
 @login_required
-@roles_required("patient")
+@roles_required("patient", "admin")
 def availability():
-    """Retorna apenas livre/ocupado. Nunca título, anotações ou dados de outra consulta."""
-    date = request.args.get("date", "")
+    """Retorna apenas livre/ocupado — nunca dados de consultas de outras pessoas."""
+    day = request.args.get("date", "")
     try:
-        datetime.strptime(date, "%Y-%m-%d")
+        datetime.strptime(day, "%Y-%m-%d")
     except ValueError:
         return jsonify(error="Data inválida. Use AAAA-MM-DD."), 400
-
-    appointments = get_db().appointments.find(
-        {"date": date}, {"_id": 0, "start": 1, "end": 1, "status": 1}
-    )
-    busy = [{"start": item["start"], "end": item["end"]} for item in appointments if item.get("status") != "cancelled"]
-    return jsonify(date=date, busy=busy)
+    rows = get_db().execute(
+        "SELECT start, end FROM appointments WHERE date = ? AND status != 'cancelled' ORDER BY start", (day,)
+    ).fetchall()
+    return jsonify(date=day, busy=[dict(r) for r in rows])
 
 
 @patient_bp.get("/me/appointments")
 @login_required
 @roles_required("patient")
 def my_appointments():
-    appointments = get_db().appointments.find(
-        {"patient_user_id": session["user_id"]},
-        {"_id": 0, "date": 1, "start": 1, "end": 1, "status": 1},
-    )
-    return jsonify(items=list(appointments))
-
+    rows = get_db().execute(
+        "SELECT date, start, end, status FROM appointments WHERE patient_user_id = ? ORDER BY date, start",
+        (session["user_id"],),
+    ).fetchall()
+    return jsonify(items=[dict(r) for r in rows])

@@ -5,34 +5,46 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CRM | Ajna Terapias</title>
-    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="../css/main.css">
 </head>
 
 <body class="crm-page">
     <header class="crm-header">
-        <a class="brand" href="/">AJNA <span>TERAPIAS</span></a>
+        <a class="brand" href="../../index.html">AJNA <span>TERAPIAS</span></a>
         <button class="text-button" id="logout" type="button">Sair</button>
     </header>
-    <main class="dashboard">
+    <main class="dashboard" data-page="admin">
         <p class="eyebrow">Administração</p>
         <h1>Painel da clínica</h1>
         <div class="stats">
             <article>
-                <span>Pacientes ativos</span>
+                <span>Clientes com acesso ativo</span>
                 <strong id="patient-count">—</strong>
             </article>
             <article>
-                <span>Consultas registradas</span>
+                <span>Consultas hoje</span>
                 <strong id="appointment-count">—</strong>
             </article>
         </div>
+
         <section class="patient-list">
-            <h2>Pacientes</h2>
-            <p class="helper">A lista e os prontuários só são carregados após a autorização de administrador.</p>
+            <h2>Criar acesso de cliente</h2>
+            <form id="new-patient" class="form form-grid">
+                <label>Nome <input name="name" required></label>
+                <label>E-mail <input name="email" type="email" required></label>
+                <label>Telefone <input name="phone" type="tel"></label>
+                <label>Senha inicial <input name="password" type="text" minlength="8" required></label>
+                <p class="error" id="new-patient-msg" role="status"></p>
+                <button class="button" type="submit">Criar acesso</button>
+            </form>
+        </section>
+
+        <section class="patient-list">
+            <h2>Clientes</h2>
             <div id="patients" aria-live="polite"></div>
         </section>
     </main>
-    <script src="/js/crm.js"></script>
+    <script src="../script/js/crm.js"></script>
 </body>
 
 </html>

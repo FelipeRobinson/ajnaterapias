@@ -15,14 +15,18 @@ backend/                API Flask
   seed_admin.py         criação do administrador inicial
 ```
 
-O MongoDB é acessado somente pelo servidor Python, usando uma URI em variável de ambiente. O JavaScript só chama rotas da API no mesmo domínio. O paciente pode consultar a disponibilidade e os próprios horários; as rotas de pacientes, prontuários e painel exigem `role=admin` em toda requisição.
+O banco é **SQLite** (módulo `sqlite3` do próprio Python): um único arquivo em `backend/instance/ajna.db`, criado automaticamente na primeira execução. Não envie esse arquivo ao Git.
+
+Login único em `/login`: administradores vão para `/crm/painel`, clientes para `/cliente`. Clientes não se cadastram sozinhos — o administrador cria o acesso no painel (nome, e-mail, senha inicial) e pode desativá-lo ou redefinir a senha.
+
+O banco é acessado somente pelo servidor Python, usando uma URI em variável de ambiente. O JavaScript só chama rotas da API no mesmo domínio. O paciente pode consultar a disponibilidade e os próprios horários; as rotas de pacientes, prontuários e painel exigem `role=admin` em toda requisição.
 
 ## Primeiro uso local
 
 1. Crie um ambiente virtual: `py -m venv .venv`
 2. Ative-o: `.\.venv\Scripts\Activate.ps1`
 3. Instale dependências: `pip install -r requirements.txt`
-4. Copie `.env.example` para `.env` e preencha `SECRET_KEY` e `MONGODB_URI`.
+4. Copie `.env.example` para `.env` e preencha `SECRET_KEY` (opcional: `DATABASE_PATH`).
 5. Crie o ADM: `python backend/seed_admin.py`
 6. Inicie: `python backend/run.py`
 7. Abra `http://127.0.0.1:5000`.
