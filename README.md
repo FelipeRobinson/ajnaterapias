@@ -9,7 +9,8 @@
 <p>
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/Flask-3.1-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask">
-  <img src="https://img.shields.io/badge/SQLite-banco_local-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/PostgreSQL-na_web-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/SQLite-local-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
   <img src="https://img.shields.io/badge/Bootstrap-5.3-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white" alt="Bootstrap">
 </p>
 <p>
@@ -188,7 +189,8 @@ powershell -ExecutionPolicy Bypass -File .\iniciar.ps1
 flowchart LR
     U([👤 Navegador]) -->|HTML, CSS, JS| F[🎨 frontend/]
     U -->|fetch /api/...| B[🐍 Flask<br/>backend/app]
-    B -->|sqlite3| D[(🗄️ ajna.db)]
+    B -->|DATABASE_URL| P[(🐘 PostgreSQL<br/>Neon/Supabase)]
+    B -.->|sem DATABASE_URL| D[(🗄️ SQLite<br/>ajna.db)]
     B -. confere sessão e perfil .-> B
 ```
 
@@ -201,7 +203,7 @@ sequenceDiagram
     actor P as 👤 Pessoa
     participant L as 🔑 /login
     participant A as 🐍 API Flask
-    participant D as 🗄️ SQLite
+    participant D as 🗄️ Banco
     P->>L: e-mail + senha
     L->>A: POST /api/auth/login
     A->>D: busca usuário ativo
@@ -221,21 +223,24 @@ ajnaterapias/
 ├── 🐍 backend/                  Servidor Python
 │   ├── app/
 │   │   ├── __init__.py          Cria o app Flask e lê o .env
-│   │   ├── database.py          Conexão SQLite + criação das tabelas
+│   │   ├── database.py          PostgreSQL ou SQLite + criação das tabelas
 │   │   ├── security.py          Login obrigatório, perfis e proteção CSRF
+│   │   ├── mailer.py            ✉️ envio de e-mails (SMTP ou pasta outbox/)
 │   │   └── routes/
 │   │       ├── auth.py          🔑 login, logout, "quem sou eu"
+│   │       ├── account.py       🔐 "Minha conta" do admin (confirmação por e-mail)
 │   │       ├── crm.py           🛠️ painel e gestão de clientes (admin)
 │   │       ├── patient.py       🙋 consultas do cliente
 │   │       └── public.py        🌐 endereços das páginas
 │   ├── tests/                   🧪 testes automáticos (pytest)
 │   ├── run.py                   🟢 liga o servidor
-│   └── seed_admin.py            👤 cria/atualiza o administrador
+│   ├── seed_admin.py            👤 cria/atualiza o administrador
+│   └── migrate_to_postgres.py   🚚 copia o SQLite local para o PostgreSQL
 ├── 🎨 frontend/                 Tudo que o navegador vê
 │   ├── index.html               🌸 página inicial
 │   ├── crm/                     login.html · painel.html · cliente.html
 │   ├── css/                     estilos (pages/login.css = tela de login)
-│   ├── script/                  JS do site · js/crm.js = lógica do CRM
+│   ├── js/                      JS do site · crm.js (login) · admin.js (painel) · cliente.js (área do cliente)
 │   └── img/                     logos, fundo e fotos dos serviços
 ├── 📚 docs/                     COMANDOS.txt · PROJETO.txt · .env.example · img/
 ├── ⚡ iniciar.ps1               Faz tudo para rodar localmente
@@ -247,7 +252,55 @@ ajnaterapias/
 
 ## 🗄️ Banco de dados
 
-Usa **SQLite**, que já vem com o Python: o banco inteiro é **um único arquivo** (`backend/instance/ajna.db`), criado automaticamente na primeira execução.
+O projeto funciona com **dois bancos**, escolhidos automaticamente pelo `.env`. O código é o mesmo nos dois casos:
+
+| | Banco | Quando | Onde ficam os dados |
+|:-:|---|---|---|
+| 🐘 | **PostgreSQL** | `DATABASE_URL` preenchida | Online, **sempre ativo** (Neon ou Supabase, plano grátis) |
+| 🪶 | **SQLite** | `DATABASE_URL` vazia | Arquivo `backend/instance/ajna.db` no seu PC, ótimo para testar offline |
+
+As tabelas são criadas sozinhas quando o servidor liga.
+
+### 🧭 Plano do projeto: local agora, PostgreSQL no host
+
+```mermaid
+flowchart LR
+    A["🪶 FASE ATUAL<br/>SQLite local + DBeaver"] -->|compra do host| B["🚚 migrate_to_postgres.py"]
+    B --> C["🐘 PostgreSQL online<br/>site no ar"]
+```
+
+| Fase | Banco | `DATABASE_URL` no `.env` |
+|---|---|---|
+| 🛠️ **Agora: desenvolvimento** | SQLite `backend/instance/ajna.db`, visto e editado no **DBeaver** | comentada (`#`) |
+| 🌐 **Depois: com host** | PostgreSQL | preenchida |
+
+**Migração (quando chegar a hora):**
+
+```powershell
+.\.venv\Scripts\python.exe backend\migrate_to_postgres.py --simular   # só mostra o que vai copiar
+.\.venv\Scripts\python.exe backend\migrate_to_postgres.py             # copia tudo
+```
+
+> 🛟 O `ajna.db` continua intacto como backup, e a migração se recusa a rodar se o PostgreSQL já tiver usuários.
+
+### 🐘 Ativando o PostgreSQL grátis (Neon)
+
+1. 🆓 Crie uma conta em **[neon.tech](https://neon.tech)** e um projeto (região São Paulo, se houver).
+2. 📋 Clique em **Connect** e copie o *connection string*.
+3. 📝 Cole no `.env`:
+   ```env
+   DATABASE_URL=postgresql://usuario:senha@ep-xxxx.sa-east-1.aws.neon.tech/neondb?sslmode=require
+   ```
+4. 👤 Crie o admin no banco online: `.\.venv\Scripts\python.exe backend\seed_admin.py`
+5. 🟢 Ligue o site normalmente.
+
+| Serviço grátis | Limite | Sem uso por um tempo |
+|---|---|---|
+| **Neon** ⭐ | 0,5 GB | "Dorme" e **acorda sozinho** na próxima conexão |
+| **Supabase** | 500 MB | **Pausa após 7 dias**: precisa reativar no painel |
+
+> [!NOTE]
+> Os dados do SQLite e do PostgreSQL são **separados**: clientes criados em um não aparecem no outro.
 
 ```mermaid
 erDiagram
@@ -274,7 +327,7 @@ erDiagram
 ```
 
 > [!TIP]
-> Para abrir e consultar o banco visualmente, use o [DB Browser for SQLite](https://sqlitebrowser.org/) ou o **DBeaver** e abra o arquivo `backend/instance/ajna.db`.
+> Para ver os dados visualmente: no PostgreSQL, use o **SQL Editor** do próprio Neon/Supabase ou o **DBeaver**. No SQLite, abra `backend/instance/ajna.db` no [DB Browser for SQLite](https://sqlitebrowser.org/).
 
 ---
 
@@ -328,18 +381,18 @@ O código e os comandos **são os mesmos**. Só mudam os valores do `.env` (ou d
 | `HOST` | `127.0.0.1` | `0.0.0.0` |
 | `PORT` | `5000` | definida pela hospedagem |
 | `SESSION_COOKIE_SECURE` | `false` | `true` (exige HTTPS) |
-| `DATABASE_PATH` | *(não precisa)* | caminho no disco persistente, ex. `/var/data/ajna.db` |
+| `DATABASE_URL` | *(vazio = SQLite)* | `postgresql://...` do Neon/Supabase |
 
-**Passos em um serviço como Render ou Railway:**
+**Passos no Render (plano grátis):**
 
-1. 🔗 Conecte o repositório do GitHub.
+1. 🔗 Crie um *Web Service* conectado ao repositório do GitHub.
 2. 🏗️ Build: `pip install -r requirements.txt`
 3. ▶️ Start: `python backend/run.py` (já está no [`Procfile`](Procfile))
-4. 💾 Adicione um **disco persistente** e aponte `DATABASE_PATH` para ele.
-5. 👤 Pelo *Shell* do serviço, crie o admin: `python backend/seed_admin.py`
+4. 🔑 Em *Environment*, cadastre as variáveis da tabela, incluindo `DATABASE_URL`.
+5. 👤 Crie o admin rodando `seed_admin.py` no seu PC com o mesmo `DATABASE_URL` no `.env`.
 
 > [!IMPORTANT]
-> Sem disco persistente, o arquivo do banco é **apagado a cada publicação**.
+> Com o banco no PostgreSQL, os dados **não se perdem** a cada publicação. No plano grátis do Render, o servidor "dorme" após 15 min sem visitas, e o primeiro acesso depois disso demora ~1 min.
 
 ---
 
@@ -354,6 +407,7 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 | ✅ `test_health_endpoint` | O servidor responde |
 | ✅ `test_admin_creates_patient_who_can_log_in` | Admin cria cliente → cliente entra → cliente **não** acessa o painel; CSRF é exigido |
 | ✅ `test_wrong_password` | Senha errada é recusada |
+| ✅ `test_duplicate_email_is_rejected` | E-mail repetido é recusado e o banco continua consistente |
 
 ---
 
@@ -362,9 +416,12 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 - [x] 🌸 Site público com identidade visual
 - [x] 🔑 Login de clientes e administração
 - [x] 🗄️ Banco de dados em Python (SQLite)
+- [x] 🐘 Suporte a PostgreSQL online (Neon/Supabase)
 - [x] 👤 Gestão de acessos de clientes
-- [ ] ✏️ Editar e excluir clientes pelo painel
-- [ ] 📅 Agenda mensal/semanal com marcação de horários
+- [x] ✏️ Editar e excluir clientes pelo painel
+- [x] 🗓️ Agenda semanal no painel (agendar, remarcar, realizar, cancelar)
+- [x] 📅 Cliente pede horário pelo portal e a clínica confirma
+- [x] 🔐 Admin altera o próprio login com confirmação por e-mail
 - [ ] 📋 Prontuário, protocolo e ficha de anamnese
 - [ ] 💰 Módulo financeiro
 - [ ] ☁️ Publicação em hospedagem com domínio próprio

@@ -27,4 +27,5 @@ with app.app_context():
         (name, email, generate_password_hash(password)),
     )
     db.commit()
-    print(f"Administrador {email} criado/atualizado em {app.config['DATABASE_PATH']}")
+    destino = "PostgreSQL (DATABASE_URL)" if app.config["DATABASE_URL"] else app.config["DATABASE_PATH"]
+    print(f"Administrador {email} criado/atualizado em {destino}")

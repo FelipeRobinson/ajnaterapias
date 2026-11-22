@@ -58,13 +58,91 @@ Os comandos e o código são os mesmos nos dois casos.
     HOST                    127.0.0.1           0.0.0.0
     PORT                    5000                o hospedeiro define
     SESSION_COOKIE_SECURE   false               true  (exige HTTPS)
-    DATABASE_PATH           (não precisa)       caminho no disco persistente
-                                                ex.: /var/data/ajna.db
+    DATABASE_URL            (vazio = SQLite)    postgresql://... (Neon/Supabase)
 
-Na web (ex.: Render, Railway):
+Na web (ex.: Render, plano grátis):
   - Comando de build:  pip install -r requirements.txt
   - Comando de start:  python backend/run.py   (já está no Procfile)
-  - Adicione um disco persistente e aponte DATABASE_PATH para ele,
-    senão o banco é apagado a cada publicação.
-  - Depois do primeiro deploy, crie o admin pelo "Shell" do serviço:
+  - Coloque DATABASE_URL nas Environment Variables.
+  - Depois do primeiro deploy, crie o admin pelo "Shell" do serviço
+    (ou do seu PC, com o mesmo DATABASE_URL no .env):
         python backend/seed_admin.py
+
+
+--------------------------------------------------------------
+ E-MAIL: CONFIRMAR ALTERAÇÃO DO LOGIN DO ADMINISTRADOR
+--------------------------------------------------------------
+No painel: "Minha conta" -> altere nome, e-mail, telefone e/ou senha,
+digite a SENHA ATUAL e clique em "Enviar confirmação por e-mail".
+Um link vai para o e-mail ATUAL da conta. Só ao clicar nele (até 30
+minutos) a alteração é aplicada.
+
+Sem SMTP configurado (padrão): o e-mail NÃO é enviado; ele é salvo em
+    backend\instance\outbox\   (abra o .eml com o Outlook ou o Bloco de Notas
+                                e copie o link "confirm?token=...")
+
+Para ENVIAR de verdade pelo Gmail (grátis):
+1) Na conta Google que vai ENVIAR os e-mails, ative a
+   "Verificação em duas etapas" (myaccount.google.com -> Segurança).
+2) Acesse myaccount.google.com/apppasswords, crie uma senha de app
+   chamada "Ajna site" e copie as 16 letras.
+3) No .env, descomente e preencha:
+     SMTP_HOST=smtp.gmail.com
+     SMTP_PORT=587
+     SMTP_USER=conta.que.envia@gmail.com
+     SMTP_PASSWORD=as16letrasdasenhadeapp
+     MAIL_FROM=Ajna Terapias <conta.que.envia@gmail.com>
+4) Reinicie o site (Ctrl+C e ligue de novo).
+Na web, coloque as mesmas variáveis no host e BASE_URL=https://seudominio.
+
+
+--------------------------------------------------------------
+ FASE ATUAL: TUDO LOCAL (SQLite + DBeaver)
+--------------------------------------------------------------
+Enquanto não houver hospedagem, o projeto usa SOMENTE o banco local:
+  - Arquivo: backend\instance\ajna.db
+  - No .env, a linha DATABASE_URL fica COMENTADA (com # na frente).
+
+Ver/editar no DBeaver:
+  Nova conexão -> SQLite -> Path: (caminho completo do projeto)\backend\instance\ajna.db
+  Não edite a coluna password_hash à mão.
+
+
+--------------------------------------------------------------
+ QUANDO COMPRAR O HOST: MIGRAR PARA POSTGRESQL
+--------------------------------------------------------------
+1) Crie o PostgreSQL (Neon, Supabase ou o do próprio host).
+2) No .env, descomente e preencha:  DATABASE_URL=postgresql://...
+3) Simule (não grava nada, só mostra quantos registros vão):
+     .\.venv\Scripts\python.exe backend\migrate_to_postgres.py --simular
+4) Migre de verdade:
+     .\.venv\Scripts\python.exe backend\migrate_to_postgres.py
+5) Coloque o mesmo DATABASE_URL nas Environment Variables do host.
+6) No DBeaver, crie uma conexão PostgreSQL para conferir os dados.
+
+O ajna.db não é apagado: fica como backup.
+A migração se recusa a rodar se o PostgreSQL já tiver usuários.
+
+
+--------------------------------------------------------------
+ POSTGRESQL GRÁTIS E SEMPRE ATIVO (NEON)
+--------------------------------------------------------------
+1) Crie uma conta grátis em https://neon.tech
+2) Crie um projeto (região: AWS São Paulo, se houver).
+3) No painel, clique em "Connect" e copie o connection string.
+   Ele se parece com:
+     postgresql://usuario:senha@ep-xxxx.sa-east-1.aws.neon.tech/neondb?sslmode=require
+4) Cole no .env:
+     DATABASE_URL=postgresql://...
+5) Crie o admin NO BANCO ONLINE:
+     .\.venv\Scripts\python.exe backend\seed_admin.py
+6) Ligue o site normalmente. As tabelas são criadas sozinhas.
+
+Para voltar ao SQLite local: comente a linha DATABASE_URL no .env.
+
+Alternativa: Supabase (https://supabase.com) → Project Settings →
+Database → Connection string (URI). No plano grátis ele PAUSA após
+7 dias sem uso; o Neon só "dorme" e acorda sozinho.
+
+ATENÇÃO: os dados do SQLite e do PostgreSQL são separados. Clientes
+criados num não aparecem no outro.

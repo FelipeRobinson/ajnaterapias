@@ -3,48 +3,213 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>CRM | Ajna Terapias</title>
-    <link rel="stylesheet" href="../css/main.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#16001f">
+    <title>Painel | Ajna Terapias</title>
+    <link rel="icon" href="../img/url_logo.png">
+    <link rel="stylesheet" href="../css/pages/admin.css">
 </head>
 
-<body class="crm-page">
-    <header class="crm-header">
-        <a class="brand" href="../index.html">AJNA <span>TERAPIAS</span></a>
-        <button class="text-button" id="logout" type="button">Sair</button>
-    </header>
-    <main class="dashboard" data-page="admin">
-        <p class="eyebrow">Administração</p>
-        <h1>Painel da clínica</h1>
-        <div class="stats">
-            <article>
-                <span>Clientes com acesso ativo</span>
-                <strong id="patient-count">—</strong>
-            </article>
-            <article>
-                <span>Consultas hoje</span>
-                <strong id="appointment-count">—</strong>
-            </article>
+<body class="adm" data-page="admin">
+    <!-- Menu: lateral no computador, barra inferior no celular -->
+    <nav class="adm-nav" aria-label="Menu do painel">
+        <a class="adm-nav__brand" href="../index.html" title="Ver o site">
+            <img src="../img/logo (1).png" alt="">
+            <span>Ajna <b>CRM</b></span>
+        </a>
+        <button class="adm-nav__item is-active" data-view="overview" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">◈</span><span>Visão geral</span>
+        </button>
+        <button class="adm-nav__item" data-view="agenda" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">▦</span><span>Agenda</span>
+        </button>
+        <button class="adm-nav__item" data-view="clients" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">☺</span><span>Clientes</span>
+        </button>
+        <button class="adm-nav__item" data-view="account" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">⚙</span><span>Minha conta</span>
+        </button>
+        <div class="adm-nav__soon">
+            <span class="adm-nav__label">Em breve</span>
+            <span class="adm-nav__item is-disabled"><span class="adm-nav__icon" aria-hidden="true">✎</span><span>Prontuários</span></span>
+            <span class="adm-nav__item is-disabled"><span class="adm-nav__icon" aria-hidden="true">$</span><span>Financeiro</span></span>
         </div>
+    </nav>
 
-        <section class="patient-list">
-            <h2>Criar acesso de cliente</h2>
-            <form id="new-patient" class="form form-grid">
-                <label>Nome <input name="name" required></label>
-                <label>E-mail <input name="email" type="email" required></label>
-                <label>Telefone <input name="phone" type="tel"></label>
-                <label>Senha inicial <input name="password" type="text" minlength="8" required></label>
-                <p class="error" id="new-patient-msg" role="status"></p>
-                <button class="button" type="submit">Criar acesso</button>
-            </form>
+    <div class="adm-main">
+        <header class="adm-top">
+            <div>
+                <p class="adm-eyebrow" id="today-label">—</p>
+                <h1 id="view-title">Visão geral</h1>
+            </div>
+            <div class="adm-top__user">
+                <span class="adm-avatar" id="admin-avatar" aria-hidden="true">A</span>
+                <span class="adm-top__name" id="admin-name">Administrador</span>
+                <button class="adm-btn adm-btn--ghost" id="logout" type="button">Sair</button>
+            </div>
+        </header>
+
+        <!-- ===== VISÃO GERAL ===== -->
+        <section class="adm-view" id="view-overview">
+            <div class="adm-stats">
+                <article class="adm-stat"><span>Clientes ativos</span><strong id="stat-patients">—</strong></article>
+                <article class="adm-stat"><span>Consultas hoje</span><strong id="stat-today">—</strong></article>
+                <article class="adm-stat"><span>Próximos 7 dias</span><strong id="stat-week">—</strong></article>
+                <article class="adm-stat adm-stat--alert"><span>Pedidos de horário</span><strong id="stat-requests">—</strong></article>
+            </div>
+            <section class="adm-card adm-requests" id="requests-card" hidden>
+                <div class="adm-card__head">
+                    <h2>🔔 Pedidos aguardando confirmação</h2>
+                </div>
+                <div id="requests-list" class="adm-list"></div>
+            </section>
+            <div class="adm-grid">
+                <section class="adm-card">
+                    <div class="adm-card__head">
+                        <h2>Agenda de hoje</h2>
+                        <button class="adm-btn adm-btn--link" data-goto="agenda" type="button">Ver agenda →</button>
+                    </div>
+                    <div id="today-list" class="adm-list"></div>
+                </section>
+                <section class="adm-card">
+                    <div class="adm-card__head"><h2>Ações rápidas</h2></div>
+                    <div class="adm-quick">
+                        <button class="adm-quick__btn" data-action="new-appointment" type="button">
+                            <b>＋ Nova consulta</b><span>Agendar um horário</span>
+                        </button>
+                        <button class="adm-quick__btn" data-action="new-client" type="button">
+                            <b>＋ Novo cliente</b><span>Criar acesso ao portal</span>
+                        </button>
+                    </div>
+                </section>
+            </div>
         </section>
 
-        <section class="patient-list">
-            <h2>Clientes</h2>
-            <div id="patients" aria-live="polite"></div>
+        <!-- ===== AGENDA ===== -->
+        <section class="adm-view" id="view-agenda" hidden>
+            <div class="adm-toolbar">
+                <div class="adm-week">
+                    <button class="adm-btn adm-btn--icon" id="week-prev" type="button" aria-label="Semana anterior">‹</button>
+                    <strong id="week-label">—</strong>
+                    <button class="adm-btn adm-btn--icon" id="week-next" type="button" aria-label="Próxima semana">›</button>
+                    <button class="adm-btn adm-btn--ghost" id="week-today" type="button">Hoje</button>
+                </div>
+                <button class="adm-btn adm-btn--primary" data-action="new-appointment" type="button">＋ Nova consulta</button>
+            </div>
+            <div id="week-days" class="adm-days"></div>
         </section>
-    </main>
-    <script src="../script/js/crm.js"></script>
+
+        <!-- ===== CLIENTES ===== -->
+        <section class="adm-view" id="view-clients" hidden>
+            <div class="adm-toolbar">
+                <input class="adm-search" id="client-search" type="search" placeholder="Buscar por nome, e-mail ou telefone" aria-label="Buscar clientes">
+                <select class="adm-select" id="client-filter" aria-label="Filtrar clientes">
+                    <option value="all">Todos</option>
+                    <option value="active">Ativos</option>
+                    <option value="inactive">Desativados</option>
+                </select>
+                <button class="adm-btn adm-btn--primary" data-action="new-client" type="button">＋ Novo cliente</button>
+            </div>
+            <div class="adm-card adm-card--flush">
+                <div id="client-list" class="adm-clients"></div>
+            </div>
+        </section>
+
+        <!-- ===== MINHA CONTA ===== -->
+        <section class="adm-view" id="view-account" hidden>
+            <div class="adm-grid adm-grid--even">
+                <section class="adm-card">
+                    <div class="adm-card__head"><h2>Dados de acesso</h2></div>
+                    <form class="adm-form adm-form--inline" id="account-form" autocomplete="off">
+                        <label>Nome<input name="name" required></label>
+                        <label>E-mail de login<input name="email" type="email" required></label>
+                        <label>Telefone<input name="phone" type="tel"></label>
+                        <label>Nova senha <span class="adm-muted">(deixe em branco para manter)</span>
+                            <input name="new_password" type="password" minlength="12" autocomplete="new-password"></label>
+                        <label>Repita a nova senha<input name="repeat" type="password" autocomplete="new-password"></label>
+                        <hr class="adm-sep">
+                        <label>Senha atual <span class="adm-muted">(obrigatória para confirmar)</span>
+                            <input name="current_password" type="password" required autocomplete="current-password"></label>
+                        <p class="adm-form__error" role="alert"></p>
+                        <div class="adm-form__actions">
+                            <button class="adm-btn adm-btn--primary" type="submit">Enviar confirmação por e-mail</button>
+                        </div>
+                    </form>
+                </section>
+                <section class="adm-card adm-account-help">
+                    <div class="adm-card__head"><h2>🔐 Como funciona</h2></div>
+                    <ol>
+                        <li>Altere o que quiser e digite sua <b>senha atual</b>.</li>
+                        <li>Enviamos um <b>link de confirmação</b> para o e-mail atual da conta (<span id="account-email-mask">—</span>).</li>
+                        <li>A alteração só vale depois de clicar no link, que expira em <b>30 minutos</b>.</li>
+                        <li>Depois de confirmado, você entra de novo com os dados novos.</li>
+                    </ol>
+                    <p class="adm-account-status" id="account-status" hidden></p>
+                </section>
+            </div>
+        </section>
+    </div>
+
+    <!-- ===== JANELAS (modais) ===== -->
+    <dialog class="adm-modal" id="client-modal">
+        <form method="dialog" class="adm-form" id="client-form">
+            <h2 id="client-modal-title">Novo cliente</h2>
+            <label>Nome completo<input name="name" required autocomplete="off"></label>
+            <label>E-mail<input name="email" type="email" required autocomplete="off"></label>
+            <label>Telefone<input name="phone" type="tel" placeholder="(11) 90000-0000" autocomplete="off"></label>
+            <label data-only="create">Senha inicial<input name="password" type="text" minlength="8" autocomplete="off" placeholder="mín. 8 caracteres"></label>
+            <p class="adm-form__error" role="alert"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Cancelar</button>
+                <button class="adm-btn adm-btn--primary" value="save" type="submit">Salvar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="adm-modal" id="password-modal">
+        <form method="dialog" class="adm-form" id="password-form">
+            <h2>Nova senha</h2>
+            <p class="adm-muted" id="password-modal-who"></p>
+            <label>Nova senha<input name="password" type="text" minlength="8" required autocomplete="off"></label>
+            <p class="adm-form__error" role="alert"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Cancelar</button>
+                <button class="adm-btn adm-btn--primary" value="save" type="submit">Salvar senha</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="adm-modal" id="appointment-modal">
+        <form method="dialog" class="adm-form" id="appointment-form">
+            <h2 id="appointment-modal-title">Nova consulta</h2>
+            <label>Cliente<select name="patient_user_id" required></select></label>
+            <label>Data<input name="date" type="date" required></label>
+            <div class="adm-form__row">
+                <label>Início<input name="start" type="time" required step="300"></label>
+                <label>Término<input name="end" type="time" required step="300"></label>
+            </div>
+            <p class="adm-form__error" role="alert"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Cancelar</button>
+                <button class="adm-btn adm-btn--primary" value="save" type="submit">Salvar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="adm-modal adm-modal--small" id="confirm-modal">
+        <form method="dialog" class="adm-form">
+            <h2 id="confirm-title">Tem certeza?</h2>
+            <p class="adm-muted" id="confirm-text"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" type="submit">Voltar</button>
+                <button class="adm-btn adm-btn--danger" value="ok" type="submit" id="confirm-ok">Confirmar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="adm-toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="../js/admin.js"></script>
 </body>
 
 </html>

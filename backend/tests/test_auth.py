@@ -5,7 +5,7 @@ from app.database import get_db
 
 
 def make_app(tmp_path):
-    app = create_app({"TESTING": True, "SECRET_KEY": "test", "DATABASE_PATH": str(tmp_path / "t.db")})
+    app = create_app({"TESTING": True, "SECRET_KEY": "test", "DATABASE_PATH": str(tmp_path / "t.db"), "DATABASE_URL": ""})
     from app.database import init_db
     init_db(app)
     with app.app_context():
@@ -40,3 +40,13 @@ def test_wrong_password(tmp_path):
     app = make_app(tmp_path)
     r = app.test_client().post("/api/auth/login", json={"email": "adm@x.com", "password": "errada"})
     assert r.status_code == 401
+
+
+def test_duplicate_email_is_rejected(tmp_path):
+    app = make_app(tmp_path)
+    admin = app.test_client()
+    token = admin.post("/api/auth/login", json={"email": "adm@x.com", "password": "senha-admin-123"}).get_json()["csrf_token"]
+    body = {"name": "Ana", "email": "ana@x.com", "password": "12345678"}
+    assert admin.post("/api/admin/patients", json=body, headers={"X-CSRF-Token": token}).status_code == 201
+    assert admin.post("/api/admin/patients", json=body, headers={"X-CSRF-Token": token}).status_code == 409
+    assert admin.get("/api/admin/dashboard").get_json()["patients"] == 1

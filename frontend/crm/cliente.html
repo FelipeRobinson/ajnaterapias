@@ -3,25 +3,142 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#16001f">
     <title>Minha área | Ajna Terapias</title>
-    <link rel="stylesheet" href="../css/main.css">
+    <link rel="icon" href="../img/url_logo.png">
+    <link rel="stylesheet" href="../css/pages/admin.css">
 </head>
 
-<body class="crm-page">
-    <header class="crm-header">
-        <a class="brand" href="../index.html">AJNA <span>TERAPIAS</span></a>
-        <button class="text-button" id="logout" type="button">Sair</button>
-    </header>
-    <main class="dashboard" data-page="patient">
-        <p class="eyebrow">Área do cliente</p>
-        <h1>Olá, <span id="client-name">—</span></h1>
-        <section class="patient-list">
-            <h2>Minhas consultas</h2>
-            <div id="appointments" aria-live="polite"></div>
+<body class="adm adm--client" data-page="patient">
+    <nav class="adm-nav" aria-label="Menu da área do cliente">
+        <a class="adm-nav__brand" href="../index.html" title="Ver o site">
+            <img src="../img/logo (1).png" alt="">
+            <span>Ajna <b>Terapias</b></span>
+        </a>
+        <button class="adm-nav__item is-active" data-view="home" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">◈</span><span>Início</span>
+        </button>
+        <button class="adm-nav__item" data-view="book" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">＋</span><span>Agendar</span>
+        </button>
+        <button class="adm-nav__item" data-view="appointments" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">▦</span><span>Consultas</span>
+        </button>
+        <button class="adm-nav__item" data-view="profile" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">☺</span><span>Meus dados</span>
+        </button>
+    </nav>
+
+    <div class="adm-main">
+        <header class="adm-top">
+            <div>
+                <p class="adm-eyebrow" id="today-label">—</p>
+                <h1 id="view-title">Olá!</h1>
+            </div>
+            <div class="adm-top__user">
+                <span class="adm-avatar" id="client-avatar" aria-hidden="true">?</span>
+                <button class="adm-btn adm-btn--ghost" id="logout" type="button">Sair</button>
+            </div>
+        </header>
+
+        <!-- ===== INÍCIO ===== -->
+        <section class="adm-view" id="view-home">
+            <div class="cli-hero" id="next-card"></div>
+            <div class="adm-grid">
+                <section class="adm-card">
+                    <div class="adm-card__head">
+                        <h2>Próximas consultas</h2>
+                        <button class="adm-btn adm-btn--link" data-goto="appointments" type="button">Ver todas →</button>
+                    </div>
+                    <div id="home-upcoming" class="adm-list"></div>
+                </section>
+                <section class="adm-card">
+                    <div class="adm-card__head"><h2>Precisa de ajuda?</h2></div>
+                    <div class="adm-quick">
+                        <button class="adm-quick__btn" data-goto="book" type="button">
+                            <b>＋ Pedir horário</b><span>Escolha um dia e um horário livre</span>
+                        </button>
+                        <a class="adm-quick__btn" id="whatsapp-link" href="https://wa.me/" target="_blank" rel="noopener noreferrer">
+                            <b>💬 Falar com a clínica</b><span>Atendimento pelo WhatsApp</span>
+                        </a>
+                    </div>
+                </section>
+            </div>
         </section>
-    </main>
-    <script src="../script/js/crm.js"></script>
+
+        <!-- ===== AGENDAR ===== -->
+        <section class="adm-view" id="view-book" hidden>
+            <section class="adm-card">
+                <div class="adm-card__head"><h2>1. Escolha o dia</h2></div>
+                <div class="cli-days" id="day-strip" role="listbox" aria-label="Dias disponíveis"></div>
+            </section>
+            <section class="adm-card cli-step">
+                <div class="adm-card__head"><h2 id="slots-title">2. Escolha o horário</h2></div>
+                <div class="cli-slots" id="slot-grid"></div>
+            </section>
+            <section class="adm-card cli-step cli-summary" id="book-summary" hidden>
+                <div>
+                    <p class="adm-muted">Seu pedido</p>
+                    <strong id="book-text">—</strong>
+                    <p class="adm-muted cli-note">A clínica confirma o horário e ele aparece como <b>Confirmada</b> em “Consultas”.</p>
+                </div>
+                <button class="adm-btn adm-btn--primary" id="book-send" type="button">Pedir este horário</button>
+            </section>
+        </section>
+
+        <!-- ===== CONSULTAS ===== -->
+        <section class="adm-view" id="view-appointments" hidden>
+            <div class="cli-tabs" role="tablist">
+                <button class="cli-tab is-active" data-tab="upcoming" type="button" role="tab">Próximas</button>
+                <button class="cli-tab" data-tab="past" type="button" role="tab">Histórico</button>
+            </div>
+            <div id="appointment-list" class="adm-list"></div>
+            <p class="adm-muted cli-note" id="cancel-rule"></p>
+        </section>
+
+        <!-- ===== MEUS DADOS ===== -->
+        <section class="adm-view" id="view-profile" hidden>
+            <div class="adm-grid adm-grid--even">
+                <section class="adm-card">
+                    <div class="adm-card__head"><h2>Meus dados</h2></div>
+                    <form class="adm-form adm-form--inline" id="profile-form">
+                        <label>Nome<input name="name" disabled></label>
+                        <label>E-mail<input name="email" disabled></label>
+                        <label>Telefone<input name="phone" type="tel" placeholder="(11) 90000-0000"></label>
+                        <p class="adm-muted cli-note">Para mudar nome ou e-mail, fale com a clínica.</p>
+                        <p class="adm-form__error" role="alert"></p>
+                        <div class="adm-form__actions"><button class="adm-btn adm-btn--primary" type="submit">Salvar telefone</button></div>
+                    </form>
+                </section>
+                <section class="adm-card">
+                    <div class="adm-card__head"><h2>Trocar senha</h2></div>
+                    <form class="adm-form adm-form--inline" id="password-form">
+                        <label>Senha atual<input name="current" type="password" autocomplete="current-password" required></label>
+                        <label>Nova senha<input name="new" type="password" autocomplete="new-password" minlength="8" required></label>
+                        <label>Repita a nova senha<input name="repeat" type="password" autocomplete="new-password" minlength="8" required></label>
+                        <p class="adm-form__error" role="alert"></p>
+                        <div class="adm-form__actions"><button class="adm-btn adm-btn--primary" type="submit">Trocar senha</button></div>
+                    </form>
+                </section>
+            </div>
+        </section>
+    </div>
+
+    <dialog class="adm-modal adm-modal--small" id="confirm-modal">
+        <form method="dialog" class="adm-form">
+            <h2 id="confirm-title">Tem certeza?</h2>
+            <p class="adm-muted" id="confirm-text"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" type="submit">Voltar</button>
+                <button class="adm-btn adm-btn--danger" value="ok" type="submit" id="confirm-ok">Confirmar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="adm-toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="../js/cliente.js"></script>
 </body>
 
 </html>
