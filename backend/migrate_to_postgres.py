@@ -21,9 +21,14 @@ from app.database import _PostgresDB, init_db
 TABLES = {
     "users": ["id", "name", "email", "phone", "password_hash", "role", "active", "created_at"],
     "appointments": ["id", "patient_user_id", "date", "start", '"end"', "status", "created_at"],
+    "medical_records": ["id", "patient_user_id", "data", "created_at", "updated_at", "updated_by"],
+    "session_protocols": ["id", "appointment_id", "patient_user_id", "data", "created_at", "updated_at", "updated_by"],
+    "acupoints": ["code", "meridian", "number", "intl_code", "pinyin", "name_pt", "view", "x", "y",
+                  "location", "indications", "notes", "custom", "updated_at", "pos3d"],
     "settings": ["key", "value"],  # inclui qual é a administradora principal
 }
-HAS_ID = {"users", "appointments"}
+ORDER = {"acupoints": "code", "settings": "key"}
+HAS_ID = {"users", "appointments", "medical_records", "session_protocols"}
 
 simular = "--simular" in sys.argv
 app = create_app({"INIT_DB": False})  # não conecta em nada até a hora de migrar
@@ -37,7 +42,7 @@ if not os.path.exists(sqlite_path):
 
 src = sqlite3.connect(sqlite_path)
 src.row_factory = sqlite3.Row
-data = {t: src.execute(f"SELECT {', '.join(cols)} FROM {t} ORDER BY {'id' if t in HAS_ID else 'key'}").fetchall()
+data = {t: src.execute(f"SELECT {', '.join(cols)} FROM {t} ORDER BY {ORDER.get(t, 'id')}").fetchall()
         for t, cols in TABLES.items()}
 src.close()
 
@@ -54,6 +59,7 @@ dst = _PostgresDB(pg_url)
 try:
     if dst.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]:
         raise SystemExit("O PostgreSQL já tem usuários. Migração cancelada para não misturar dados.")
+    dst.execute("DELETE FROM acupoints")  # os pontos (com as edições da clínica) vêm do SQLite
     for t, cols in TABLES.items():
         marks = ", ".join(["%s"] * len(cols))
         override = "OVERRIDING SYSTEM VALUE " if t in HAS_ID else ""
