@@ -8,6 +8,7 @@
     <title>Painel | Ajna Terapias</title>
     <link rel="icon" href="../img/url_logo.png">
     <link rel="stylesheet" href="../css/pages/admin.css">
+    <script type="importmap">{ "imports": { "three": "../vendor/three/three.module.min.js" } }</script>
 </head>
 
 <body class="adm" data-page="admin">
@@ -26,12 +27,14 @@
         <button class="adm-nav__item" data-view="clients" type="button">
             <span class="adm-nav__icon" aria-hidden="true">☺</span><span>Clientes</span>
         </button>
+        <button class="adm-nav__item" data-view="points" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">☯</span><span>Mapa de pontos</span>
+        </button>
         <button class="adm-nav__item" data-view="account" type="button">
             <span class="adm-nav__icon" aria-hidden="true">⚙</span><span>Minha conta</span>
         </button>
         <div class="adm-nav__soon">
             <span class="adm-nav__label">Em breve</span>
-            <span class="adm-nav__item is-disabled"><span class="adm-nav__icon" aria-hidden="true">✎</span><span>Prontuários</span></span>
             <span class="adm-nav__item is-disabled"><span class="adm-nav__icon" aria-hidden="true">$</span><span>Financeiro</span></span>
         </div>
     </nav>
@@ -115,6 +118,91 @@
             </div>
         </section>
 
+        <!-- ===== FICHA DO PACIENTE (prontuário + protocolos) ===== -->
+        <section class="adm-view" id="view-patient" hidden>
+            <button class="adm-btn adm-btn--link adm-back" data-goto="clients" type="button">← Voltar para clientes</button>
+            <div class="adm-card pf-head" id="pf-head"></div>
+            <div class="cli-tabs" role="tablist">
+                <button class="cli-tab is-active" data-pf-tab="record" type="button" role="tab">📋 Prontuário</button>
+                <button class="cli-tab" data-pf-tab="protocols" type="button" role="tab">📝 Protocolos <span id="pf-count"></span></button>
+            </div>
+            <div id="pf-record"></div>
+            <div id="pf-protocols" hidden></div>
+            <p class="adm-muted pf-private">🔒 Prontuário e protocolos são visíveis só para a administração. O cliente vê apenas a data e o horário das consultas.</p>
+        </section>
+
+        <!-- ===== MAPA DE PONTOS ===== -->
+        <section class="adm-view" id="view-points" hidden>
+            <div class="mp-layout">
+                <div class="adm-card mp-map-card">
+                    <div class="mp-toolbar">
+                        <div class="cli-tabs mp-mode" role="tablist" aria-label="Tipo de visualização">
+                            <button class="cli-tab is-active" data-mp-mode="2d" type="button">2D</button>
+                            <button class="cli-tab" data-mp-mode="3d" type="button">🧊 3D</button>
+                        </div>
+                        <div class="cli-tabs mp-views" role="tablist">
+                            <button class="cli-tab is-active" data-mp-view="front" type="button">Frente</button>
+                            <button class="cli-tab" data-mp-view="back" type="button">Costas</button>
+                            <button class="cli-tab" data-mp-view="ear" type="button">👂 Orelha</button>
+                        </div>
+                        <input class="adm-search mp-search" id="mp-search" type="search" list="acupoint-list"
+                               placeholder="Buscar: VB20, Hegu, E36…" aria-label="Buscar ponto">
+                        <div class="mp-zoom">
+                            <button class="adm-btn adm-btn--icon" data-mp-zoom="out" type="button" aria-label="Diminuir">−</button>
+                            <button class="adm-btn adm-btn--icon" data-mp-zoom="in" type="button" aria-label="Aumentar">+</button>
+                            <button class="adm-btn adm-btn--ghost adm-btn--sm" data-mp-zoom="reset" type="button">Corpo todo</button>
+                        </div>
+                    </div>
+                    <div class="mp-regions" aria-label="Aproximar região do corpo">
+                        <span>Ver de perto:</span>
+                        <button class="adm-btn adm-btn--sm" data-mp-region="head" type="button">🙂 Cabeça</button>
+                        <button class="adm-btn adm-btn--sm" data-mp-region="ear" type="button">👂 Orelha</button>
+                        <button class="adm-btn adm-btn--sm" data-mp-region="trunk" type="button">🫁 Tronco</button>
+                        <button class="adm-btn adm-btn--sm" data-mp-region="arm" type="button">💪 Braço</button>
+                        <button class="adm-btn adm-btn--sm" data-mp-region="hand" type="button">✋ Mão</button>
+                        <button class="adm-btn adm-btn--sm" data-mp-region="leg" type="button">🦵 Perna</button>
+                        <button class="adm-btn adm-btn--sm" data-mp-region="foot" type="button">🦶 Pé</button>
+                    </div>
+                    <div class="mp-layers mp-only-3d" hidden>
+                        <span>Corpo:</span>
+                        <div class="cli-tabs" role="tablist" aria-label="Corpo">
+                            <button class="cli-tab is-active" data-mp-body="m" type="button">♂ Masculino</button>
+                            <button class="cli-tab" data-mp-body="f" type="button">♀ Feminino</button>
+                        </div>
+                        <span>Camada:</span>
+                        <div class="cli-tabs" role="tablist">
+                            <button class="cli-tab is-active" data-mp-layer="skin" type="button">🧍 Pele</button>
+                            <button class="cli-tab" data-mp-layer="muscles" type="button">💪 Músculos</button>
+                            <button class="cli-tab" data-mp-layer="bones" type="button">🦴 Ossos</button>
+                        </div>
+                        <label class="mp-opacity">Pele <input type="range" id="mp-skin-opacity" min="0" max="100" value="100"></label>
+                        <span class="mp-under" id="mp-under"></span>
+                    </div>
+                    <div class="mp-meridians" id="mp-meridians" aria-label="Filtrar por meridiano"></div>
+                    <div class="mp-stage" id="mp-stage">
+                        <svg id="mp-svg" viewBox="0 0 300 710" role="img" aria-label="Mapa do corpo com pontos de acupuntura"></svg>
+                        <div class="mp-3d" id="mp-3d" hidden></div>
+                        <div class="mp-tip" id="mp-tip" hidden></div>
+                        <div class="mp-drag-bar" id="mp-drag-bar" hidden>
+                            <span id="mp-drag-text">✋ Arraste o ponto para a posição correta</span>
+                            <button class="adm-btn adm-btn--sm adm-btn--ghost" data-mp-drag="cancel" type="button">Cancelar</button>
+                            <button class="adm-btn adm-btn--sm adm-btn--primary" data-mp-drag="save" type="button">Salvar posição</button>
+                        </div>
+                    </div>
+                    <div class="mp-footer">
+                        <label class="mp-patient">Destacar pontos usados com:
+                            <select class="adm-select" id="mp-patient"><option value="">— nenhum paciente —</option></select>
+                        </label>
+                        <label class="pf-check"><input type="checkbox" id="mp-labels"> Mostrar códigos</label>
+                    </div>
+                    <p class="adm-muted mp-disclaimer">Posições aproximadas para orientação visual — confira sempre pela localização anatômica e corrija quando precisar.
+                        <span class="mp-only-3d" hidden>Modelos 3D: BodyParts3D 4.0 © DBCLS (masculino) e HuBMAP VH Female v1.5 — K. Browne &amp; H. Schlehlein (feminino),
+                        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (adaptados). O corpo feminino não tem músculos e tem esqueleto parcial.</span></p>
+                </div>
+                <aside class="adm-card mp-panel" id="mp-panel"></aside>
+            </div>
+        </section>
+
         <!-- ===== MINHA CONTA ===== -->
         <section class="adm-view" id="view-account" hidden>
             <div class="adm-grid adm-grid--even">
@@ -195,6 +283,45 @@
             </div>
         </form>
     </dialog>
+
+    <dialog class="adm-modal adm-modal--wide" id="protocol-modal">
+        <form method="dialog" class="adm-form" id="protocol-form">
+            <div class="pf-modal-head">
+                <div>
+                    <p class="adm-eyebrow">Protocolo de atendimento</p>
+                    <h2 id="protocol-title">—</h2>
+                </div>
+            </div>
+            <div id="protocol-fields"></div>
+            <p class="adm-form__error" role="alert"></p>
+            <div class="adm-form__actions pf-sticky-actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Fechar</button>
+                <button class="adm-btn adm-btn--primary" value="save" type="submit">Salvar protocolo</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="adm-modal" id="point-modal">
+        <form method="dialog" class="adm-form" id="point-form">
+            <h2>Novo ponto extra</h2>
+            <p class="adm-muted">Para pontos fora dos 361 clássicos (ex.: Yintang, Taiyang, pontos de auriculoterapia).</p>
+            <div class="adm-form__row">
+                <label>Código<input name="code" required placeholder="EX-HN3" autocomplete="off"></label>
+                <label>Nome (pinyin)<input name="pinyin" required placeholder="Yintang" autocomplete="off"></label>
+            </div>
+            <label>Nome em português<input name="name_pt" placeholder="Ponto entre as sobrancelhas" autocomplete="off"></label>
+            <label>Aparece na vista
+                <select name="view"><option value="front">Frente</option><option value="back">Costas</option><option value="ear">Orelha (auriculoterapia)</option></select>
+            </label>
+            <p class="adm-form__error" role="alert"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Cancelar</button>
+                <button class="adm-btn adm-btn--primary" value="save" type="submit">Criar e posicionar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <datalist id="acupoint-list"></datalist>
 
     <dialog class="adm-modal adm-modal--small" id="confirm-modal">
         <form method="dialog" class="adm-form">

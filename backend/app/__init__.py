@@ -36,10 +36,12 @@ def create_app(test_config=None):
 
     from .database import close_db, init_db
     from .routes.account import account_bp
+    from .routes.acupoints import acupoints_bp
     from .routes.auth import auth_bp
     from .routes.crm import crm_bp
     from .routes.patient import patient_bp
     from .routes.public import public_bp
+    from .routes.records import records_bp
 
     if app.config.get("INIT_DB", True):
         init_db(app)
@@ -48,6 +50,8 @@ def create_app(test_config=None):
     app.register_blueprint(account_bp, url_prefix="/api/account")
     app.register_blueprint(patient_bp, url_prefix="/api/patient")
     app.register_blueprint(crm_bp, url_prefix="/api/admin")
+    app.register_blueprint(records_bp, url_prefix="/api/admin")
+    app.register_blueprint(acupoints_bp, url_prefix="/api/admin")
     app.teardown_appcontext(close_db)
 
     @app.get("/api/health")
