@@ -44,6 +44,20 @@ CREATE TABLE IF NOT EXISTS account_changes (
     used        INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- Pedidos de "esqueci a senha" (link enviado por e-mail).
+CREATE TABLE IF NOT EXISTS password_resets (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    token_hash  TEXT NOT NULL UNIQUE,
+    expires_at  TEXT NOT NULL,
+    used        INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL
+);
+-- Configurações gerais (ex.: primary_admin_id = administradora principal).
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 SCHEMA_POSTGRES = """
@@ -77,6 +91,20 @@ CREATE TABLE IF NOT EXISTS account_changes (
     expires_at  TEXT NOT NULL,
     used        INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+);
+-- Pedidos de "esqueci a senha" (link enviado por e-mail).
+CREATE TABLE IF NOT EXISTS password_resets (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    token_hash  TEXT NOT NULL UNIQUE,
+    expires_at  TEXT NOT NULL,
+    used        INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL
+);
+-- Configurações gerais (ex.: primary_admin_id = administradora principal).
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
 );
 """
 
@@ -153,3 +181,24 @@ def init_db(app):
         conn.executescript(SCHEMA_SQLITE)
     finally:
         conn.close()
+
+
+# ------------------------------------------------------------------ configurações
+
+def get_setting(db, key):
+    row = db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else None
+
+
+def set_setting(db, key, value):
+    db.execute("DELETE FROM settings WHERE key = ?", (key,))
+    db.execute("INSERT INTO settings (key, value) VALUES (?, ?)", (key, str(value)))
+
+
+def primary_admin(db):
+    """A administradora principal ("chave primária"): recebe as confirmações de alteração de login."""
+    admin_id = get_setting(db, "primary_admin_id")
+    if not admin_id:
+        return None
+    return db.execute("SELECT id, name, email FROM users WHERE id = ? AND role = 'admin' AND active = 1",
+                      (int(admin_id),)).fetchone()

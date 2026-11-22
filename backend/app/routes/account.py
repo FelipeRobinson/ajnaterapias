@@ -2,7 +2,9 @@
 
 Fluxo:
   1. No painel ("Minha conta"), o admin informa o que quer mudar + a SENHA ATUAL.
-  2. O sistema envia um link de confirmação para o E-MAIL ATUAL da conta (válido por 30 min).
+  2. O sistema envia um link de confirmação para o e-mail da ADMINISTRADORA PRINCIPAL
+     ("chave primária", definida com seed_admin.py --principal). Sem principal definida,
+     vai para o e-mail atual da própria conta. O link vale 30 min.
   3. Só ao clicar no link a alteração é aplicada. Depois, um aviso é enviado ao(s) e-mail(s).
 """
 import hashlib
@@ -15,7 +17,7 @@ from secrets import token_urlsafe
 from flask import Blueprint, current_app, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..database import get_db
+from ..database import get_db, primary_admin
 from ..mailer import mask_email, send_email
 from ..security import csrf_required, login_required, roles_required
 
@@ -90,15 +92,17 @@ def change_request():
     link = f'{current_app.config["BASE_URL"]}/api/account/confirm?token={token}'
     items = [FIELD_LABELS["password" if k == "password_hash" else k] for k in changes]
     lines = "\n".join(f"  • {i}" for i in items)
+    approver = primary_admin(db) or user
+    whose = "da sua conta" if approver["id"] == user["id"] else f"da conta de {user['name']} ({user['email']})"
     send_email(
-        user["email"],
-        "Confirme a alteração dos seus dados de acesso — Ajna Terapias",
-        f"Olá, {user['name']}!\n\nFoi pedida uma alteração nos dados de acesso do painel da Ajna Terapias:\n{lines}\n\n"
-        f"Para confirmar, abra o link abaixo (válido por {TOKEN_MINUTES} minutos):\n{link}\n\n"
-        "Se não foi você, ignore este e-mail: nada será alterado. Recomendamos trocar sua senha.",
-        _email_html(user["name"], items, link),
+        approver["email"],
+        "Confirme a alteração de dados de acesso — Ajna Terapias",
+        f"Olá, {approver['name']}!\n\nFoi pedida uma alteração nos dados de acesso {whose} no painel da Ajna Terapias:\n"
+        f"{lines}\n\nPara confirmar, abra o link abaixo (válido por {TOKEN_MINUTES} minutos):\n{link}\n\n"
+        "Se você não reconhece este pedido, ignore este e-mail: nada será alterado.",
+        _email_html(approver["name"], items, link, whose),
     )
-    return jsonify(ok=True, sent_to=mask_email(user["email"]), minutes=TOKEN_MINUTES)
+    return jsonify(ok=True, sent_to=mask_email(approver["email"]), minutes=TOKEN_MINUTES)
 
 
 @account_bp.get("/confirm")
@@ -126,7 +130,8 @@ def confirm():
     items = [FIELD_LABELS["password" if k == "password_hash" else k] for k in changes]
     notice = ("Os dados de acesso do painel da Ajna Terapias foram alterados: " + ", ".join(items) +
               ".\nSe não foi você, entre em contato com o responsável técnico imediatamente.")
-    recipients = {user["email"], changes.get("email", user["email"])}
+    principal = primary_admin(db)
+    recipients = {user["email"], changes.get("email", user["email"])} | ({principal["email"]} if principal else set())
     for to in recipients:
         try:
             send_email(to, "Seus dados de acesso foram alterados — Ajna Terapias", notice)
@@ -137,7 +142,7 @@ def confirm():
     return _page("Alteração confirmada! ✅", "Seus dados de acesso foram atualizados. Entre novamente no painel.", ok=True)
 
 
-def _email_html(name, items, link):
+def _email_html(name, items, link, whose="da sua conta"):
     li = "".join(f"<li>{escape(i)}</li>" for i in items)
     return f"""
 <div style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:auto;color:#24152e">
@@ -147,7 +152,7 @@ def _email_html(name, items, link):
   </div>
   <div style="border:1px solid #ebe2ef;border-top:0;padding:24px;border-radius:0 0 16px 16px">
     <p>Olá, <b>{escape(name)}</b>!</p>
-    <p>Foi pedida uma alteração nos dados de acesso do painel:</p>
+    <p>Foi pedida uma alteração nos dados de acesso {escape(whose)} no painel:</p>
     <ul>{li}</ul>
     <p style="text-align:center;margin:28px 0">
       <a href="{escape(link)}" style="background:#7800b4;color:#fff;padding:14px 26px;border-radius:12px;text-decoration:none;font-weight:700">

@@ -63,3 +63,80 @@ if (loginForm) {
     }
   });
 }
+
+// ---------- Esqueci minha senha ----------
+const forgotForm = document.querySelector("#forgot-form");
+if (forgotForm) {
+  const showCard = (name) => {
+    document.querySelector("#login-card").hidden = name !== "login";
+    document.querySelector("#forgot-card").hidden = name !== "forgot";
+    if (name === "forgot") {
+      // aproveita o e-mail já digitado no login
+      const typed = loginForm?.elements.email.value;
+      if (typed) forgotForm.elements.email.value = typed;
+      forgotForm.elements.email.focus();
+    }
+    history.replaceState(null, "", name === "forgot" ? "#esqueci" : location.pathname);
+  };
+  document.querySelectorAll("[data-show]").forEach((b) => b.addEventListener("click", () => showCard(b.dataset.show)));
+  if (location.hash === "#esqueci") showCard("forgot");
+
+  forgotForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const error = document.querySelector("#forgot-error");
+    const ok = document.querySelector("#forgot-ok");
+    error.textContent = "";
+    const button = forgotForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      const r = await request("/api/auth/forgot", {
+        method: "POST",
+        body: JSON.stringify({ email: forgotForm.elements.email.value }),
+      });
+      ok.textContent = `📧 ${r.message} Confira também a caixa de spam. O link vale por 30 minutos.`;
+      ok.hidden = false;
+      forgotForm.hidden = true;
+    } catch (err) {
+      error.textContent = err.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+// ---------- Criar nova senha (página redefinir.html) ----------
+const resetForm = document.querySelector("#reset-form");
+if (resetForm) {
+  const token = new URLSearchParams(location.search).get("token") || "";
+  const error = document.querySelector("#reset-error");
+  const invalid = () => {
+    resetForm.hidden = true;
+    document.querySelector("#reset-invalid").hidden = false;
+  };
+  request(`/api/auth/reset-info?token=${encodeURIComponent(token)}`)
+    .then((info) => {
+      if (!info.valid) return invalid();
+      resetForm.elements.password.minLength = info.min_length;
+      document.querySelector("#reset-min").textContent = info.min_length;
+    })
+    .catch(invalid);
+
+  resetForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    error.textContent = "";
+    const { password, repeat } = resetForm.elements;
+    if (password.value !== repeat.value) { error.textContent = "As senhas não conferem."; return; }
+    const button = resetForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      await request("/api/auth/reset", { method: "POST", body: JSON.stringify({ token, password: password.value }) });
+      resetForm.hidden = true;
+      document.querySelector("#reset-done").hidden = false;
+      history.replaceState(null, "", location.pathname); // tira o token da barra de endereço
+    } catch (err) {
+      error.textContent = err.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}

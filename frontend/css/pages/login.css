@@ -203,6 +203,46 @@
     font-size: .88rem;
 }
 
+[hidden] {
+    display: none !important;
+}
+
+.login__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ajna-light);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.login__link:hover {
+    color: #fff;
+}
+
+.login__success {
+    margin: 0 0 1rem;
+    padding: .9rem 1rem;
+    border: 1px solid rgba(134, 239, 172, .35);
+    border-radius: 12px;
+    background: rgba(22, 101, 52, .25);
+    color: #bbf7d0;
+    line-height: 1.5;
+}
+
+.login__submit--link {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+}
+
+#reset-invalid .login__error {
+    margin-bottom: 1rem;
+}
+
 @media (max-width: 860px) {
     .login {
         grid-template-columns: 1fr;

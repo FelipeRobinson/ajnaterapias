@@ -421,7 +421,9 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 - [x] ✏️ Editar e excluir clientes pelo painel
 - [x] 🗓️ Agenda semanal no painel (agendar, remarcar, realizar, cancelar)
 - [x] 📅 Cliente pede horário pelo portal e a clínica confirma
-- [x] 🔐 Admin altera o próprio login com confirmação por e-mail
+- [x] 🔐 Admin altera o próprio login com aprovação da administradora principal por e-mail
+- [x] 🔑 "Esqueci minha senha" para clientes e administradores
+- [ ] 💬 Chat no site para o primeiro atendimento (sem login)
 - [ ] 📋 Prontuário, protocolo e ficha de anamnese
 - [ ] 💰 Módulo financeiro
 - [ ] ☁️ Publicação em hospedagem com domínio próprio

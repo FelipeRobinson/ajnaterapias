@@ -70,12 +70,32 @@ Na web (ex.: Render, plano grátis):
 
 
 --------------------------------------------------------------
+ ADMINISTRADORA PRINCIPAL ("chave primária")
+--------------------------------------------------------------
+É a conta que APROVA, por e-mail, qualquer alteração de login de
+administrador (dela ou de outro admin) e recebe os avisos de segurança.
+Hoje: Ellen Robinson. Para trocar ou definir de novo:
+    .\.venv\Scripts\python.exe backend\seed_admin.py --principal
+
+
+--------------------------------------------------------------
  E-MAIL: CONFIRMAR ALTERAÇÃO DO LOGIN DO ADMINISTRADOR
 --------------------------------------------------------------
 No painel: "Minha conta" -> altere nome, e-mail, telefone e/ou senha,
 digite a SENHA ATUAL e clique em "Enviar confirmação por e-mail".
-Um link vai para o e-mail ATUAL da conta. Só ao clicar nele (até 30
-minutos) a alteração é aplicada.
+O link vai para o e-mail da ADMINISTRADORA PRINCIPAL. Só ao clicar
+nele (até 30 minutos) a alteração é aplicada.
+
+
+--------------------------------------------------------------
+ ESQUECI MINHA SENHA (clientes e administradores)
+--------------------------------------------------------------
+Na tela de login: "Esqueci minha senha" -> digita o e-mail -> recebe
+um link (30 min, uso único) -> cria a nova senha.
+  - Clientes: mínimo 8 caracteres. Administradores: mínimo 12.
+  - Se um administrador redefinir a senha, a principal recebe um aviso.
+  - A resposta é sempre a mesma, exista ou não o e-mail (não revela
+    quem tem cadastro), e há um intervalo de 2 min entre pedidos.
 
 Sem SMTP configurado (padrão): o e-mail NÃO é enviado; ele é salvo em
     backend\instance\outbox\   (abra o .eml com o Outlook ou o Bloco de Notas

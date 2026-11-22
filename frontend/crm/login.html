@@ -20,7 +20,8 @@
     </aside>
 
     <main class="login__panel">
-        <div class="login__card">
+        <!-- Entrar -->
+        <div class="login__card" id="login-card">
             <span class="login__eyebrow">Área restrita</span>
             <h1>Bem-vindo de volta</h1>
             <p class="login__helper">Entre com o e-mail e a senha fornecidos pela clínica.</p>
@@ -39,7 +40,29 @@
                 <button class="login__submit" type="submit">Entrar</button>
             </form>
 
-            <p class="login__foot">Esqueceu a senha? Fale com a clínica para redefini-la.</p>
+            <p class="login__foot">
+                <button class="login__link" type="button" data-show="forgot">Esqueci minha senha</button>
+            </p>
+        </div>
+
+        <!-- Esqueci minha senha -->
+        <div class="login__card" id="forgot-card" hidden>
+            <span class="login__eyebrow">Recuperar acesso</span>
+            <h1>Esqueci minha senha</h1>
+            <p class="login__helper">Digite o e-mail da sua conta. Enviaremos um link para você criar uma nova senha.</p>
+
+            <form id="forgot-form" class="login__form" novalidate>
+                <label class="login__field">E-mail
+                    <input name="email" type="email" autocomplete="email" placeholder="voce@email.com" required>
+                </label>
+                <p class="login__error" id="forgot-error" role="alert"></p>
+                <button class="login__submit" type="submit">Enviar link</button>
+            </form>
+            <p class="login__success" id="forgot-ok" role="status" hidden></p>
+
+            <p class="login__foot">
+                <button class="login__link" type="button" data-show="login">← Voltar para o login</button>
+            </p>
         </div>
     </main>
 

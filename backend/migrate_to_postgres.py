@@ -21,7 +21,9 @@ from app.database import _PostgresDB, init_db
 TABLES = {
     "users": ["id", "name", "email", "phone", "password_hash", "role", "active", "created_at"],
     "appointments": ["id", "patient_user_id", "date", "start", '"end"', "status", "created_at"],
+    "settings": ["key", "value"],  # inclui qual é a administradora principal
 }
+HAS_ID = {"users", "appointments"}
 
 simular = "--simular" in sys.argv
 app = create_app({"INIT_DB": False})  # não conecta em nada até a hora de migrar
@@ -35,7 +37,8 @@ if not os.path.exists(sqlite_path):
 
 src = sqlite3.connect(sqlite_path)
 src.row_factory = sqlite3.Row
-data = {t: src.execute(f"SELECT {', '.join(cols)} FROM {t} ORDER BY id").fetchall() for t, cols in TABLES.items()}
+data = {t: src.execute(f"SELECT {', '.join(cols)} FROM {t} ORDER BY {'id' if t in HAS_ID else 'key'}").fetchall()
+        for t, cols in TABLES.items()}
 src.close()
 
 print(f"Origem  (SQLite):     {sqlite_path}")
@@ -53,9 +56,13 @@ try:
         raise SystemExit("O PostgreSQL já tem usuários. Migração cancelada para não misturar dados.")
     for t, cols in TABLES.items():
         marks = ", ".join(["%s"] * len(cols))
-        sql = f"INSERT INTO {t} ({', '.join(cols)}) OVERRIDING SYSTEM VALUE VALUES ({marks})"
-        with dst.conn.cursor() as cur:
-            cur.executemany(sql, [tuple(r) for r in data[t]])
+        override = "OVERRIDING SYSTEM VALUE " if t in HAS_ID else ""
+        sql = f"INSERT INTO {t} ({', '.join(cols)}) {override}VALUES ({marks})"
+        if data[t]:
+            with dst.conn.cursor() as cur:
+                cur.executemany(sql, [tuple(r) for r in data[t]])
+        if t not in HAS_ID:
+            continue
         # Faz os próximos IDs continuarem depois do maior ID copiado.
         dst.conn.execute(
             f"SELECT setval(pg_get_serial_sequence('{t}', 'id'), COALESCE((SELECT MAX(id) FROM {t}), 0) + 1, false)"

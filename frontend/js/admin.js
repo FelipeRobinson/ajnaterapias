@@ -109,8 +109,8 @@
     accountForm.elements.name.value = me.name;
     accountForm.elements.email.value = me.email;
     accountForm.elements.phone.value = me.phone || "";
-    const [user, domain] = me.email.split("@");
-    $("#account-email-mask").textContent = `${user.slice(0, 2)}***@${domain}`;
+
+
   }
 
   accountForm.addEventListener("submit", async (event) => {

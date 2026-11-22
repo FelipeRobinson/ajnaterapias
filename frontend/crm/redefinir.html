@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Criar nova senha | Ajna Terapias</title>
+    <link rel="icon" href="../img/url_logo.png">
+    <link rel="stylesheet" href="../css/pages/login.css">
+</head>
+
+<body class="login">
+    <aside class="login__brand">
+        <a class="login__logo" href="../index.html"><img src="../img/logo (1).png" alt="Ajna Terapias"></a>
+        <div class="login__quote">
+            <h2>Uma nova senha, o mesmo cuidado.</h2>
+            <p>Escolha uma senha que só você saiba. Ela vale para entrar na área da Ajna Terapias.</p>
+        </div>
+        <a class="login__back" href="../index.html">← Voltar ao site</a>
+    </aside>
+
+    <main class="login__panel">
+        <div class="login__card">
+            <span class="login__eyebrow">Recuperar acesso</span>
+            <h1>Criar nova senha</h1>
+
+            <form id="reset-form" class="login__form" novalidate>
+                <p class="login__helper">Mínimo de <b id="reset-min">8</b> caracteres.</p>
+                <label class="login__field">Nova senha
+                    <input name="password" type="password" autocomplete="new-password" required>
+                </label>
+                <label class="login__field">Repita a nova senha
+                    <input name="repeat" type="password" autocomplete="new-password" required>
+                </label>
+                <p class="login__error" id="reset-error" role="alert"></p>
+                <button class="login__submit" type="submit">Salvar nova senha</button>
+            </form>
+
+            <div id="reset-done" hidden>
+                <p class="login__success">✅ Senha alterada com sucesso! Já pode entrar com a nova senha.</p>
+                <a class="login__submit login__submit--link" href="/login">Ir para o login</a>
+            </div>
+
+            <div id="reset-invalid" hidden>
+                <p class="login__error">Este link é inválido, já foi usado ou expirou (vale 30 minutos).</p>
+                <a class="login__submit login__submit--link" href="/login#esqueci">Pedir um novo link</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/crm.js"></script>
+</body>
+
+</html>
