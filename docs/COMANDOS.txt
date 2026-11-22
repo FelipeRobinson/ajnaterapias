@@ -1,0 +1,70 @@
+==============================================================
+ AJNA TERAPIAS - COMANDOS PARA RODAR O SITE
+==============================================================
+Todos os comandos são digitados no PowerShell, dentro da pasta
+do projeto (ajnaterapias).
+
+
+--------------------------------------------------------------
+ JEITO RÁPIDO (faz tudo sozinho)
+--------------------------------------------------------------
+Primeira vez (cria o ambiente, o .env e o administrador):
+
+    powershell -ExecutionPolicy Bypass -File .\iniciar.ps1 -Admin
+
+Nas próximas vezes (só liga o site):
+
+    powershell -ExecutionPolicy Bypass -File .\iniciar.ps1
+
+Depois abra no navegador:  http://127.0.0.1:5000/login
+Para desligar o servidor:  Ctrl + C
+
+
+--------------------------------------------------------------
+ PASSO A PASSO (o que o iniciar.ps1 faz por dentro)
+--------------------------------------------------------------
+1) Criar o ambiente virtual (só na primeira vez)
+    py -m venv .venv
+
+2) Instalar as dependências
+    .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+3) Criar o arquivo de configuração (só na primeira vez)
+    Copy-Item .env.example .env
+   Depois abra o .env e troque a SECRET_KEY por uma gerada com:
+    .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"
+
+4) Criar ou atualizar o administrador
+    .\.venv\Scripts\python.exe backend\seed_admin.py
+
+5) Ligar o site
+    .\.venv\Scripts\python.exe backend\run.py
+
+Rodar os testes automáticos:
+    cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
+
+
+--------------------------------------------------------------
+ CONFIGURAÇÃO: LOCAL x WEB  (só isto muda)
+--------------------------------------------------------------
+Os valores ficam no arquivo .env (no seu computador) ou nas
+"Environment Variables" do serviço de hospedagem (na web).
+Os comandos e o código são os mesmos nos dois casos.
+
+    Variável                LOCAL               WEB
+    ---------------------   -----------------   ------------------------
+    FLASK_ENV               development         production
+    SECRET_KEY              chave gerada        OUTRA chave gerada, longa
+    HOST                    127.0.0.1           0.0.0.0
+    PORT                    5000                o hospedeiro define
+    SESSION_COOKIE_SECURE   false               true  (exige HTTPS)
+    DATABASE_PATH           (não precisa)       caminho no disco persistente
+                                                ex.: /var/data/ajna.db
+
+Na web (ex.: Render, Railway):
+  - Comando de build:  pip install -r requirements.txt
+  - Comando de start:  python backend/run.py   (já está no Procfile)
+  - Adicione um disco persistente e aponte DATABASE_PATH para ele,
+    senão o banco é apagado a cada publicação.
+  - Depois do primeiro deploy, crie o admin pelo "Shell" do serviço:
+        python backend/seed_admin.py

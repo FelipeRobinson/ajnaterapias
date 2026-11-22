@@ -1,47 +1,38 @@
 # Ajna Terapias
 
-Estrutura inicial do site público e do CRM da clínica.
+Site da clínica + CRM com login para clientes e administração.
 
-## Arquitetura
+**Para rodar o site:** veja [docs/COMANDOS.txt](docs/COMANDOS.txt) — ou simplesmente:
 
-```
-frontend/               site expositor existente e telas do paciente
-  index.html            página principal
-  agenda.html           agenda do paciente
-  crm/                  login e painel administrativo
-  css/ e js/            interface sem credenciais sensíveis
-backend/                API Flask
-  app/routes/           autenticação, paciente, administração e páginas
-  seed_admin.py         criação do administrador inicial
+```powershell
+powershell -ExecutionPolicy Bypass -File .\iniciar.ps1 -Admin
 ```
 
-O banco é **SQLite** (módulo `sqlite3` do próprio Python): um único arquivo em `backend/instance/ajna.db`, criado automaticamente na primeira execução. Não envie esse arquivo ao Git.
+## Estrutura
 
-Login único em `/login`: administradores vão para `/crm/painel`, clientes para `/cliente`. Clientes não se cadastram sozinhos — o administrador cria o acesso no painel (nome, e-mail, senha inicial) e pode desativá-lo ou redefinir a senha.
+```
+index.html          página inicial do site
+frontend/           CSS, imagens, scripts e páginas do CRM (crm/)
+backend/            servidor Python (Flask) + banco SQLite
+  app/routes/       login, área do cliente, painel do administrador
+  seed_admin.py     cria/atualiza o administrador
+  tests/            testes automáticos
+docs/               COMANDOS.txt (como rodar) e PROJETO.txt (anotações)
+iniciar.ps1         faz tudo para rodar localmente
+requirements.txt    dependências Python
+Procfile            comando de início usado na hospedagem
+.env.example        modelo das configurações (copie para .env)
+```
 
-O banco é acessado somente pelo servidor Python, usando uma URI em variável de ambiente. O JavaScript só chama rotas da API no mesmo domínio. O paciente pode consultar a disponibilidade e os próprios horários; as rotas de pacientes, prontuários e painel exigem `role=admin` em toda requisição.
+## Como funciona
 
-## Primeiro uso local
+- Banco **SQLite**: um arquivo em `backend/instance/ajna.db`, criado automaticamente. Não vai para o Git.
+- Login único em `/login`: administrador vai para `/crm/painel`, cliente para `/cliente`.
+- Clientes não se cadastram sozinhos: o administrador cria, desativa ou redefine a senha no painel.
+- O navegador nunca acessa o banco direto — só chama a API em Python, que confere o login.
 
-1. Crie um ambiente virtual: `py -m venv .venv`
-2. Ative-o: `.\.venv\Scripts\Activate.ps1`
-3. Instale dependências: `pip install -r requirements.txt`
-4. Copie `.env.example` para `.env` e preencha `SECRET_KEY` (opcional: `DATABASE_PATH`).
-5. Crie o ADM: `python backend/seed_admin.py`
-6. Inicie: `python backend/run.py`
-7. Abra `http://127.0.0.1:5000`.
+## Segurança
 
-Para testar a estrutura: `pytest backend/tests`.
-
-## MongoDB Atlas e segurança
-
-- Crie um usuário técnico exclusivo da aplicação, com acesso apenas ao banco `ajna_terapias`; não use uma conta de administração do Atlas no app.
-- Cadastre a URI apenas no provedor de hospedagem e no `.env` local. O `.env` já está ignorado pelo Git.
-- Em produção, use HTTPS, defina `SESSION_COOKIE_SECURE=true` e uma `SECRET_KEY` aleatória longa.
-- Antes de registrar prontuários reais, revise LGPD, retenção de dados, backup, trilha de auditoria e controle de acesso com um profissional adequado.
-
-## Publicação
-
-O projeto precisa ser hospedado como aplicação Python (por exemplo, em um serviço compatível com WSGI) e não como GitHub Pages, pois há autenticação e banco de dados. O domínio público pode ser `www.seudominio.com.br`, e o CRM continuará em `/crm`, protegido por sessão. Não existe forma de tornar um repositório GitHub **público** invisível: para ocultar o código, use repositório privado e hospede a aplicação em uma plataforma separada.
-
-Use um servidor WSGI em produção — por exemplo: `waitress-serve --call 'app:create_app'`, executado dentro de `backend/`.
+- Nunca envie o `.env` ao GitHub (já está no `.gitignore`).
+- Na web: HTTPS, `SESSION_COOKIE_SECURE=true` e uma `SECRET_KEY` longa e própria.
+- Antes de guardar dados clínicos reais, revise LGPD, backup e controle de acesso.
