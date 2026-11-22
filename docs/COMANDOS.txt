@@ -30,7 +30,7 @@ Para desligar o servidor:  Ctrl + C
     .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
 3) Criar o arquivo de configuração (só na primeira vez)
-    Copy-Item .env.example .env
+    Copy-Item docs/.env.example .env
    Depois abra o .env e troque a SECRET_KEY por uma gerada com:
     .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"
 

@@ -4,7 +4,7 @@ const serviceData = {
         name: 'Acupuntura',
         description: 'Utiliza agulhas muito finas em pontos específicos do corpo, definidos após uma escuta cuidadosa e uma avaliação energética individual.',
         note: 'Uma prática conduzida de forma individualizada e integrada ao seu momento.',
-        image: './frontend/img/service-acupuncture.jpg',
+        image: './img/service-acupuncture.jpg',
         alt: 'Sessão de acupuntura em um ambiente tranquilo'
     },
     reiki: {
@@ -12,7 +12,7 @@ const serviceData = {
         name: 'Reiki',
         description: 'Uma prática de imposição ou aproximação das mãos que convida ao relaxamento, à presença e à percepção do próprio campo energético.',
         note: 'Um momento de pausa e reconexão conduzido em ambiente acolhedor.',
-        image: './frontend/img/service-reiki.jpg',
+        image: './img/service-reiki.jpg',
         alt: 'Prática de Reiki realizada com as mãos próximas ao corpo'
     },
     auriculoterapia: {
@@ -20,7 +20,7 @@ const serviceData = {
         name: 'Auriculoterapia',
         description: 'Estimula pontos específicos da orelha relacionados, segundo a abordagem terapêutica, a diferentes regiões e funções do organismo.',
         note: 'Os pontos são escolhidos a partir da anamnese e do cuidado individual.',
-        image: './frontend/img/service-auriculotherapy.jpg',
+        image: './img/service-auriculotherapy.jpg',
         alt: 'Aplicação de auriculoterapia em pontos específicos da orelha'
     },
     ventosaterapia: {
@@ -28,7 +28,7 @@ const serviceData = {
         name: 'Ventosaterapia',
         description: 'Aplica copos próprios sobre a pele para criar uma sucção controlada, seguindo uma avaliação responsável das regiões trabalhadas.',
         note: 'A intensidade e o tempo de aplicação são definidos para cada atendimento.',
-        image: './frontend/img/service-cupping.jpg',
+        image: './img/service-cupping.jpg',
         alt: 'Sessão de ventosaterapia com copos aplicados nas costas'
     },
     shiatsu: {
@@ -36,7 +36,7 @@ const serviceData = {
         name: 'Shiatsu',
         description: 'Trabalha pressões rítmicas com os dedos e as mãos ao longo do corpo, respeitando limites, necessidades e resposta de cada pessoa.',
         note: 'Toque consciente e ritmo fazem parte de uma experiência profundamente atenta.',
-        image: './frontend/img/service-shiatsu.jpg',
+        image: './img/service-shiatsu.jpg',
         alt: 'Sessão de Shiatsu com pressão terapêutica nas costas'
     },
     reflexologia: {
@@ -44,7 +44,7 @@ const serviceData = {
         name: 'Reflexologia',
         description: 'Utiliza pressões em áreas reflexas, especialmente nos pés, dentro de uma proposta de relaxamento e percepção integral do corpo.',
         note: 'A técnica é incorporada ao cuidado conforme a avaliação do atendimento.',
-        image: './frontend/img/service-reflexology.jpg',
+        image: './img/service-reflexology.jpg',
         alt: 'Sessão de reflexologia com pressão terapêutica nos pés'
     },
     massagens: {
@@ -52,7 +52,7 @@ const serviceData = {
         name: 'Massagens terapêuticas',
         description: 'Diferentes modalidades de toque e manobras são selecionadas para criar uma experiência de cuidado, relaxamento e consciência corporal.',
         note: 'Cada sessão considera preferências, objetivos e limites individuais.',
-        image: './frontend/img/service-massage.jpg',
+        image: './img/service-massage.jpg',
         alt: 'Massagem terapêutica realizada por profissional'
     }
 };

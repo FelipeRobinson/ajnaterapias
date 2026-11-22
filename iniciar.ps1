@@ -22,7 +22,7 @@ Write-Host "Instalando dependencias..."
 # 3. Arquivo .env com uma chave secreta gerada (só na primeira vez)
 if (-not (Test-Path ".env")) {
     $key = & $python -c "import secrets; print(secrets.token_urlsafe(48))"
-    (Get-Content ".env.example") -replace "gere-uma-chave-aleatoria-longa-aqui", $key | Set-Content ".env" -Encoding utf8
+    (Get-Content "docs/.env.example") -replace "gere-uma-chave-aleatoria-longa-aqui", $key | Set-Content ".env" -Encoding utf8
     Write-Host "Arquivo .env criado."
 }
 

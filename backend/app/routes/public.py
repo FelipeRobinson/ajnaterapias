@@ -6,7 +6,7 @@ public_bp = Blueprint("public", __name__)
 @public_bp.get("/")
 @public_bp.get("/index.html")
 def home():
-    return send_from_directory(current_app.config["PROJECT_ROOT"], "index.html")
+    return redirect("/frontend/index.html")
 
 
 # Endereços curtos redirecionam para o arquivo real, para que os caminhos

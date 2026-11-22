@@ -13,6 +13,12 @@
     font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+.login *,
+.login *::before,
+.login *::after {
+    box-sizing: border-box;
+}
+
 /* Painel da marca */
 .login__brand {
     position: relative;
@@ -136,6 +142,7 @@
 
 .login__password {
     position: relative;
+    display: block;
 }
 
 .login__password input {
