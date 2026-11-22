@@ -53,6 +53,44 @@ CREATE TABLE IF NOT EXISTS password_resets (
     used        INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL
 );
+-- Prontuário (ficha fixa do paciente, uma por paciente). Campos em JSON (ver routes/records.py).
+CREATE TABLE IF NOT EXISTS medical_records (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_user_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
+    data            TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    updated_by      INTEGER REFERENCES users(id)
+);
+
+-- Protocolo de atendimento (preenchido a cada consulta).
+CREATE TABLE IF NOT EXISTS session_protocols (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    appointment_id  INTEGER NOT NULL UNIQUE REFERENCES appointments(id),
+    patient_user_id INTEGER NOT NULL REFERENCES users(id),
+    data            TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    updated_by      INTEGER REFERENCES users(id)
+);
+-- Pontos de acupuntura (361 da OMS + pontos extras criados pela clínica). Editáveis no painel.
+CREATE TABLE IF NOT EXISTS acupoints (
+    code        TEXT PRIMARY KEY,
+    meridian    TEXT NOT NULL,
+    number      INTEGER,
+    intl_code   TEXT,
+    pinyin      TEXT NOT NULL,
+    name_pt     TEXT,
+    view        TEXT NOT NULL,
+    x           REAL NOT NULL,
+    y           REAL NOT NULL,
+    location    TEXT,
+    indications TEXT,
+    notes       TEXT,
+    custom      INTEGER NOT NULL DEFAULT 0,
+    updated_at  TEXT,
+    pos3d       TEXT
+);
 -- Configurações gerais (ex.: primary_admin_id = administradora principal).
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -100,6 +138,44 @@ CREATE TABLE IF NOT EXISTS password_resets (
     expires_at  TEXT NOT NULL,
     used        INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL
+);
+-- Prontuário (ficha fixa do paciente, uma por paciente). Campos em JSON (ver routes/records.py).
+CREATE TABLE IF NOT EXISTS medical_records (
+    id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    patient_user_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
+    data            TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    updated_by      INTEGER REFERENCES users(id)
+);
+
+-- Protocolo de atendimento (preenchido a cada consulta).
+CREATE TABLE IF NOT EXISTS session_protocols (
+    id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    appointment_id  INTEGER NOT NULL UNIQUE REFERENCES appointments(id),
+    patient_user_id INTEGER NOT NULL REFERENCES users(id),
+    data            TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    updated_by      INTEGER REFERENCES users(id)
+);
+-- Pontos de acupuntura (361 da OMS + pontos extras criados pela clínica). Editáveis no painel.
+CREATE TABLE IF NOT EXISTS acupoints (
+    code        TEXT PRIMARY KEY,
+    meridian    TEXT NOT NULL,
+    number      INTEGER,
+    intl_code   TEXT,
+    pinyin      TEXT NOT NULL,
+    name_pt     TEXT,
+    view        TEXT NOT NULL,
+    x           REAL NOT NULL,
+    y           REAL NOT NULL,
+    location    TEXT,
+    indications TEXT,
+    notes       TEXT,
+    custom      INTEGER NOT NULL DEFAULT 0,
+    updated_at  TEXT,
+    pos3d       TEXT
 );
 -- Configurações gerais (ex.: primary_admin_id = administradora principal).
 CREATE TABLE IF NOT EXISTS settings (
@@ -171,6 +247,8 @@ def init_db(app):
         db = _PostgresDB(app.config["DATABASE_URL"])
         try:
             db.conn.execute(SCHEMA_POSTGRES)
+            db.conn.execute("ALTER TABLE acupoints ADD COLUMN IF NOT EXISTS pos3d TEXT")
+            _seed_acupoints(db)
             db.commit()
         finally:
             db.close()
@@ -179,6 +257,13 @@ def init_db(app):
     conn = sqlite3.connect(app.config["DATABASE_PATH"])
     try:
         conn.executescript(SCHEMA_SQLITE)
+        conn.row_factory = sqlite3.Row
+        # colunas novas em bancos criados antes delas existirem
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(acupoints)").fetchall()}
+        if "pos3d" not in cols:
+            conn.execute("ALTER TABLE acupoints ADD COLUMN pos3d TEXT")
+        _seed_acupoints(conn)
+        conn.commit()
     finally:
         conn.close()
 
@@ -202,3 +287,18 @@ def primary_admin(db):
         return None
     return db.execute("SELECT id, name, email FROM users WHERE id = ? AND role = 'admin' AND active = 1",
                       (int(admin_id),)).fetchone()
+
+
+def _seed_acupoints(db):
+    """Grava os pontos padrão que ainda não existem (361 clássicos + auriculoterapia).
+    Pontos já existentes (e as edições da clínica) nunca são alterados."""
+    from .acupoints_data import all_points, auricular_points
+    existing = {r["code"] for r in db.execute("SELECT code FROM acupoints").fetchall()}
+    for pt in all_points() + auricular_points():
+        if pt["code"] in existing:
+            continue
+        db.execute(
+            """INSERT INTO acupoints (code, meridian, number, intl_code, pinyin, view, x, y, custom)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+            (pt["code"], pt["meridian"], pt["number"], pt["intl_code"], pt["pinyin"], pt["view"], pt["x"], pt["y"]),
+        )

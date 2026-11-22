@@ -226,11 +226,14 @@ ajnaterapias/
 │   │   ├── database.py          PostgreSQL ou SQLite + criação das tabelas
 │   │   ├── security.py          Login obrigatório, perfis e proteção CSRF
 │   │   ├── mailer.py            ✉️ envio de e-mails (SMTP ou pasta outbox/)
+│   │   ├── acupoints_data.py  ☯ os 361 pontos (códigos, pinyin, meridianos, posições)
 │   │   └── routes/
 │   │       ├── auth.py          🔑 login, logout, "quem sou eu"
 │   │       ├── account.py       🔐 "Minha conta" do admin (confirmação por e-mail)
 │   │       ├── crm.py           🛠️ painel e gestão de clientes (admin)
 │   │       ├── patient.py       🙋 consultas do cliente
+│   │       ├── records.py       📋 prontuário e protocolos (campos definidos aqui)
+│   │       ├── acupoints.py     ☯ mapa de pontos (editar, extras, uso nas sessões)
 │   │       └── public.py        🌐 endereços das páginas
 │   ├── tests/                   🧪 testes automáticos (pytest)
 │   ├── run.py                   🟢 liga o servidor
@@ -396,6 +399,14 @@ O código e os comandos **são os mesmos**. Só mudam os valores do `.env` (ou d
 
 ---
 
+## 🙏 Créditos
+
+- Modelo anatômico 3D: **BodyParts3D 4.0**, © The Database Center for Life Science, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — adaptado (ver `frontend/models/anatomy/ATRIBUICAO.md`).
+- Modelo 3D feminino: **HuBMAP 3D Reference Organ Set for Female v1.5**, K. Browne e H. Schlehlein, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — adaptado (ver `frontend/models/anatomy-f/ATRIBUICAO.md`).
+- Visualização 3D: **[Three.js](https://threejs.org/)** (licença MIT).
+
+---
+
 ## 🧪 Testes
 
 ```powershell
@@ -424,7 +435,12 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 - [x] 🔐 Admin altera o próprio login com aprovação da administradora principal por e-mail
 - [x] 🔑 "Esqueci minha senha" para clientes e administradores
 - [ ] 💬 Chat no site para o primeiro atendimento (sem login)
-- [ ] 📋 Prontuário, protocolo e ficha de anamnese
+- [x] 📋 Prontuário (ficha fixa) e protocolo por sessão, só para a administração
+- [x] ☯ Mapa interativo dos 361 pontos (OMS) ligado aos protocolos
+- [x] 🧊 Mapa 3D com camadas (pele, músculos, ossos), orelha e zoom no ponto
+- [x] 👂 79 pontos de auriculoterapia (GB/T 13734) com mapa da orelha
+- [x] ♀ Corpo feminino no 3D (pele e esqueleto parcial)
+- [x] 🧍 Bonequinho em cada sessão com os pontos usados (clique para marcar)
 - [ ] 💰 Módulo financeiro
 - [ ] ☁️ Publicação em hospedagem com domínio próprio
 

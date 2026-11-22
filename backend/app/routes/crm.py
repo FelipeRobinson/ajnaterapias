@@ -38,13 +38,14 @@ def dashboard():
     week_end = today + timedelta(days=6)
     count = lambda sql, params=(): db.execute(sql, params).fetchone()["n"]
     agenda = db.execute(
-        """SELECT a.id, a.start, a."end", a.status, u.name AS patient_name
+        """SELECT a.id, a.patient_user_id, a.start, a."end", a.status, u.name AS patient_name,
+                  (SELECT COUNT(*) FROM session_protocols sp WHERE sp.appointment_id = a.id) AS has_protocol
            FROM appointments a JOIN users u ON u.id = a.patient_user_id
            WHERE a.date = ? AND a.status != 'cancelled' ORDER BY a.start""",
         (today.isoformat(),),
     ).fetchall()
     requests = db.execute(
-        """SELECT a.id, a.date, a.start, a."end", a.status, u.name AS patient_name
+        """SELECT a.id, a.patient_user_id, a.date, a.start, a."end", a.status, u.name AS patient_name
            FROM appointments a JOIN users u ON u.id = a.patient_user_id
            WHERE a.status = 'requested' AND a.date >= ? ORDER BY a.date, a.start""",
         (today.isoformat(),),
@@ -155,6 +156,8 @@ def delete_patient(user_id):
     ).fetchone()["n"]
     if has_history:
         return jsonify(error="Este cliente tem consultas registradas. Desative o acesso em vez de excluir."), 409
+    db.execute("DELETE FROM medical_records WHERE patient_user_id = ?", (user_id,))
+    db.execute("DELETE FROM password_resets WHERE user_id = ?", (user_id,))
     db.execute("DELETE FROM users WHERE id = ? AND role = 'patient'", (user_id,))
     db.commit()
     return "", 204
@@ -203,7 +206,8 @@ def appointments():
     if not (_valid_date(start) and _valid_date(end)):
         return jsonify(error="Período inválido."), 400
     rows = get_db().execute(
-        """SELECT a.id, a.patient_user_id, a.date, a.start, a."end", a.status, u.name AS patient_name, u.phone
+        """SELECT a.id, a.patient_user_id, a.date, a.start, a."end", a.status, u.name AS patient_name, u.phone,
+                  (SELECT COUNT(*) FROM session_protocols sp WHERE sp.appointment_id = a.id) AS has_protocol
            FROM appointments a JOIN users u ON u.id = a.patient_user_id
            WHERE a.date BETWEEN ? AND ? ORDER BY a.date, a.start""",
         (start, end),
@@ -264,6 +268,8 @@ def update_appointment(appointment_id):
 @csrf_required
 def delete_appointment(appointment_id):
     db = get_db()
+    if db.execute("SELECT 1 FROM session_protocols WHERE appointment_id = ?", (appointment_id,)).fetchone():
+        return jsonify(error="Esta consulta tem protocolo preenchido e não pode ser excluída."), 409
     db.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
     db.commit()
     return "", 204
