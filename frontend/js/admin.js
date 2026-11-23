@@ -496,6 +496,7 @@
         <h2>${esc(p.name)} <span class="adm-badge adm-badge--${p.active ? "active" : "inactive"}">${p.active ? "Ativo" : "Desativado"}</span></h2>
         <p class="adm-muted">${esc(p.email)}${p.phone ? ` · ${esc(p.phone)}` : ""} · cliente desde ${dateBR(p.created_at)}</p>
       </div>
+      <button class="adm-btn adm-btn--primary pf-3d-btn" data-patient-3d type="button">🧍 Pontos no corpo 3D</button>
       <div class="pf-head__stats">
         <div><b>${done.length}</b><span>sessões realizadas</span></div>
         <div><b>${done[0] ? dateBR(done[0].date) : "—"}</b><span>última sessão</span></div>
@@ -665,19 +666,43 @@
     });
   }
 
+  // Modos: "2d" (corpo 2D), "3d" (corpo 3D) e "ear" (orelha 2D separada, auriculoterapia)
   async function setMode(mode) {
+    if (mode !== "ear") mode = "3d";
+    const wasEar = mp.mode === "ear";
     mp.mode = mode;
     const is3d = mode === "3d";
+    const isEar = mode === "ear";
     $$("[data-mp-mode]").forEach((b) => b.classList.toggle("is-active", b.dataset.mpMode === mode));
     $$(".mp-only-3d").forEach((el) => (el.hidden = !is3d));
+    $(".mp-views").hidden = isEar;
+    $(".mp-regions").hidden = isEar;
+    $("#mp-meridians").hidden = isEar;
+    $('[data-mp-zoom="reset"]').textContent = isEar ? "Orelha toda" : "Corpo todo";
+    if (isEar && mp.filter && mp.filter !== "OR") mp.filter = null;
+    $("#mp-stage").classList.toggle("is-ear", isEar);
     $("#mp-svg").style.display = is3d ? "none" : "";
     $("#mp-3d").hidden = !is3d;
     $(".mp-zoom").hidden = is3d;
+    if (isEar) {
+      mp.view = "ear";
+      mp.vb = { ...baseFor("ear") };
+    } else if (wasEar || mp.view === "ear") {
+      mp.view = "front";
+      mp.vb = { ...baseFor("front") };
+    }
+    if (!is3d) {
+      mp.viewer?.pause(true);
+      renderMap();
+      renderPanel();
+      localStorage.setItem("ajna-map-mode", mode);
+      return;
+    }
     if (is3d && !mp.viewer) {
       try {
         const mod = await import("./map3d.js");
         mp.viewer = await mod.createViewer($("#mp-3d"), {
-          model: localStorage.getItem("ajna-map-body") || "m",
+          model: "f",
           getPoints: () => mp.points,
           styleOf,
           onSelect: (code) => selectPoint(code),
@@ -686,8 +711,8 @@
       } catch (err) {
         console.error(err);
         window.__map3dError = String(err?.stack || err);
-        toast("Não foi possível abrir o 3D neste navegador.", true);
-        return setMode("2d");
+        toast("Não foi possível abrir o 3D neste navegador. Atualize o navegador ou use outro.", true);
+        return setMode("ear");
       }
     }
     mp.viewer?.pause(!is3d);
@@ -769,7 +794,7 @@
           <text x="132" y="140">Concha cimba</text><text x="128" y="224">Concha cava</text>
           <text x="44" y="212">Trago</text><text x="128" y="270">Antítrago</text><text x="190" y="304">Lóbulo</text>
         </g>
-        <text x="120" y="14" class="mp-view-label">ORELHA DIREITA (vale para as duas)</text>
+        <text x="120" y="14" class="mp-view-label">ORELHA ESQUERDA · vale para as duas</text>
       </g>`;
   }
 
@@ -908,7 +933,7 @@
           ${sel ? `<circle cx="${x}" cy="${p.y}" r="${r * 2.4}" class="mp-ring" stroke="${color}"/>` : ""}
           ${used ? `<circle cx="${x}" cy="${p.y}" r="${r * 1.9}" class="mp-used"/>` : ""}
           <circle cx="${x}" cy="${p.y}" r="${sel ? r * 1.35 : r}" fill="${color}" class="mp-dot"/>
-          ${(showLabels || used) && !dim ? `<text x="${x + r + 1}" y="${p.y + fs / 3}" font-size="${fs}" class="mp-label">${esc(p.code)}${used ? ` (${used})` : ""}</text>` : ""}
+          ${(showLabels || used) && !dim ? `<text x="${x + r + 1}" y="${p.y + fs / 3}" font-size="${fs}" class="mp-label">${esc(p.code.replace("OR-", ""))}${used ? ` (${used})` : ""}</text>` : ""}
           <circle cx="${x}" cy="${p.y}" r="${Math.max(r * 2.2, 5 / zoom + r)}" class="mp-hit"/>
         </g>`;
       return one(p.x, false) + (isBilateral(p) ? one(300 - p.x, true) : "");
@@ -938,6 +963,22 @@
     const p = mp.selected && mp.byCode[mp.selected];
     if (!p) {
       const top = [...mp.points].filter((x) => x.used).sort((a, b) => b.used - a.used).slice(0, 8);
+      if (mp.mode === "ear" && !mp.usage) {
+        const ear = mp.points.filter((x) => x.view === "ear");
+        const groups = {};
+        ear.forEach((x) => (groups[EAR_REGIONS[(x.intl_code || "").slice(0, 2)] || "Outros"] ||= []).push(x));
+        panel.innerHTML = `
+          <h2 class="mp-panel__title">👂 Auriculoterapia</h2>
+          <p class="adm-muted">${ear.length} pontos (nomenclatura GB/T 13734). Passe o mouse para ver o nome e clique para abrir.
+          A orelha desenhada é a esquerda; os mesmos pontos valem para as duas.</p>
+          ${Object.entries(groups).map(([region, pts]) => `
+            <h3 class="mp-subtitle">${esc(region)} <span class="adm-muted">· ${pts.length}</span></h3>
+            <div class="mp-point-grid">${pts.map((x) => `
+              <button class="mp-point-chip" data-select="${esc(x.code)}" type="button"><b>${esc(x.intl_code)}</b><span>${esc(x.pinyin)}</span>${x.used ? `<em>${x.used}</em>` : ""}</button>`).join("")}
+            </div>`).join("")}
+          <button class="adm-btn adm-btn--ghost mp-new-ear" data-mp-new type="button">＋ Novo ponto da orelha</button>`;
+        return;
+      }
       if (mp.usage && !mp.filter) {
         const name = $("#mp-patient").selectedOptions[0]?.text || "";
         const used = Object.entries(mp.usage).sort((a, b) => b[1] - a[1]);
@@ -1038,7 +1079,8 @@
   function selectPoint(code, { focus = false } = {}) {
     const p = mp.byCode[code];
     if (!p) return;
-    if (p.view === "ear" && mp.mode === "3d") setMode("2d");
+    if (p.view === "ear" && mp.mode !== "ear") setMode("ear");
+    else if (p.view !== "ear" && mp.mode === "ear") setMode("2d");
     mp.selected = code;
     if (p.view !== mp.view) mp.view = p.view;
     if (focus) {
@@ -1150,6 +1192,20 @@
     $$("[data-mp-region]").forEach((b) => b.addEventListener("click", () =>
       mp.mode === "3d" ? mp.viewer?.view(b.dataset.mpRegion) : zoomRegion(b.dataset.mpRegion)));
     $$("[data-mp-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mpMode)));
+    const fsTarget = $("#view-points .mp-layout");
+    $("[data-mp-fullscreen]").addEventListener("click", async () => {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await fsTarget.requestFullscreen();
+      } catch (_) {
+        fsTarget.classList.toggle("is-pseudo-fs"); // navegadores sem tela cheia (ex.: iPhone)
+        document.body.classList.toggle("mp-noscroll", fsTarget.classList.contains("is-pseudo-fs"));
+        $("[data-mp-fullscreen]").textContent = fsTarget.classList.contains("is-pseudo-fs") ? "✕ Sair da tela cheia" : "⛶ Tela cheia";
+      }
+    });
+    document.addEventListener("fullscreenchange", () => {
+      $("[data-mp-fullscreen]").textContent = document.fullscreenElement ? "✕ Sair da tela cheia" : "⛶ Tela cheia";
+    });
     $$("[data-mp-body]").forEach((b) => b.addEventListener("click", async () => {
       if (!mp.viewer) return;
       const available = await mp.viewer.setModel(b.dataset.mpBody);
@@ -1184,8 +1240,9 @@
       if (mp.filter) {
         const list = mp.points.filter((p) => p.meridian === mp.filter);
         const count = (v) => list.filter((p) => p.view === v).length;
-        mp.view = ["front", "back", "ear"].sort((a, b) => count(b) - count(a))[0];
-        if (mp.view === "ear" && mp.mode === "3d") setMode("2d");
+        const best = ["front", "back", "ear"].sort((a, b) => count(b) - count(a))[0];
+        if (best === "ear") { if (mp.mode !== "ear") setMode("ear"); }
+        else { if (mp.mode === "ear") setMode("2d"); mp.view = best; }
       }
       mp.vb = { ...BASE_VB };
       renderMeridianChips();
@@ -1317,7 +1374,7 @@
   function openNewPoint() {
     pointForm.reset();
     $(".adm-form__error", pointForm).textContent = "";
-    pointForm.elements.view.value = mp.view;
+    pointForm.elements.view.value = mp.mode === "ear" ? "ear" : mp.view;
     pointModal.showModal();
   }
   bindForm(pointModal, async (data) => {
@@ -1344,7 +1401,9 @@
     renderMeridianChips();
     renderMap();
     renderPanel();
-    if ((localStorage.getItem("ajna-map-mode") || "2d") !== mp.mode) await setMode(localStorage.getItem("ajna-map-mode"));
+    const wantMode = localStorage.getItem("ajna-map-mode") === "ear" ? "ear" : "3d";
+    if (wantMode !== mp.mode || !mp.viewer) await setMode(wantMode);
+    if (localStorage.getItem("ajna-map-split") === "theory") setSplit("theory");
   }
 
   // Abrir um ponto no mapa a partir de outra tela (ex.: protocolo)
@@ -1420,6 +1479,7 @@
         <div class="pf-points__add">
           <input type="text" list="acupoint-list" placeholder="Digite o código ou nome (ex.: VB20, Hegu, Shenmen) e tecle Enter" autocomplete="off">
           <button class="adm-btn adm-btn--sm" data-points-add type="button">Adicionar</button>
+          <select class="adm-select adm-btn--sm" data-insert-combo aria-label="Inserir combinação"><option value="">＋ Inserir combinação…</option></select>
         </div>
         <div class="pf-doll">
           <p class="pf-doll__hint">👆 Ou clique nos pontos do boneco para marcar / desmarcar (inclui auriculoterapia).</p>
@@ -1467,6 +1527,129 @@
       addPointFromInput(e.target.closest(".pf-points"));
     }
   });
+
+
+  // ---------------------------------------------------------------- 🎨 Visual / 📚 Teórico
+  function setSplit(which, code) {
+    $$("[data-mp-split]").forEach((b) => b.classList.toggle("is-active", b.dataset.mpSplit === which));
+    $("#mp-theory").hidden = which !== "theory";
+    $("#view-points .mp-layout").hidden = which === "theory";
+    mp.viewer?.pause(which === "theory" || mp.mode !== "3d");
+    if (which === "theory") loadPoints().then(() => window.AjnaTheory?.open(code));
+    localStorage.setItem("ajna-map-split", which);
+  }
+  $$("[data-mp-split]").forEach((b) => b.addEventListener("click", () => setSplit(b.dataset.mpSplit)));
+
+  // Funções do painel usadas pela parte teórica (theory.js)
+  window.AjnaAdmin = {
+    api, esc, toast, confirmAction,
+    dateBR: (s) => (s ? s.slice(0, 10).split("-").reverse().join("/") : ""),
+    meridian: (code) => mp.merById[code],
+    meridians: () => mp.meridians,
+    usedCount: (code) => mp.byCode[code]?.used || 0,
+    resolvePoint(raw) {
+      const t = String(raw || "").trim();
+      const code = t.toUpperCase().split(/\s|·/)[0];
+      const hit = mp.byCode[code] || mp.points.find((p) => p.pinyin.toUpperCase() === t.toUpperCase())
+        || mp.points.find((p) => (p.name_pt || "").toUpperCase() === t.toUpperCase());
+      return hit?.code || null;
+    },
+    async showPointOnMap(code) {
+      setSplit("visual");
+      await loadPoints();
+      selectPoint(code, { focus: true });
+    },
+    async reloadMapPoints() { await loadPoints(true); },
+  };
+
+  // Protocolo: inserir uma combinação salva (🧺) de uma vez
+  document.addEventListener("focusin", async (e) => {
+    const sel = e.target.closest?.("[data-insert-combo]");
+    if (!sel || sel.dataset.loaded) return;
+    sel.dataset.loaded = "1";
+    const combos = (await window.AjnaTheory?.combos()) || [];
+    sel.insertAdjacentHTML("beforeend", combos.map((c) => `<option value="${c.id}">${esc(c.name)} (${c.points.length})</option>`).join("")
+      || '<option disabled>Nenhuma combinação salva (📚 Teórico › 🧺)</option>');
+    sel._combos = combos;
+  });
+  document.addEventListener("change", (e) => {
+    const sel = e.target.closest?.("[data-insert-combo]");
+    if (!sel || !sel.value) return;
+    const combo = (sel._combos || []).find((c) => String(c.id) === sel.value);
+    const box = sel.closest(".pf-points");
+    (combo?.points || []).forEach((code) => {
+      if (!$(`.pf-pchip[data-code="${CSS.escape(code)}"]`, box)) $(".pf-points__chips", box).insertAdjacentHTML("beforeend", pointChip(code, true));
+    });
+    refreshDoll(box);
+    toast(`Combinação “${combo?.name}” inserida.`);
+    sel.value = "";
+  });
+
+
+  // ---------------------------------------------------------------- ficha do paciente › corpo 3D com os pontos usados nele
+  // Corpo masculino só para paciente homem (sexo no prontuário); nos demais casos, o feminino.
+  const p3d = { viewer: null, usage: {}, sel: null };
+
+  async function openPatient3D() {
+    const file = state.file;
+    const gender = file.record?.data?.gender || "";
+    const model = gender === "Masculino" ? "m" : "f";
+    await loadPoints();
+    p3d.usage = await api(`/api/admin/acupoints/usage?patient_id=${state.patientId}`);
+    p3d.sel = null;
+    const codes = Object.keys(p3d.usage).sort((a, b) => p3d.usage[b] - p3d.usage[a]);
+    const body = codes.filter((c) => mp.byCode[c] && mp.byCode[c].view !== "ear");
+    const ear = codes.filter((c) => mp.byCode[c]?.view === "ear");
+    $("#p3d-title").textContent = file.patient.name;
+    $("#p3d-sub").textContent = `${model === "m" ? "♂ Corpo masculino" : "♀ Corpo feminino"} · ${body.length} ponto(s) no corpo` +
+      `${ear.length ? ` · ${ear.length} na orelha` : ""} · ${file.sessions.filter((s) => s.protocol).length} protocolo(s)` +
+      `${gender ? "" : " · defina o sexo no prontuário para usar o corpo masculino em pacientes homens"}`;
+    const row = (c) => {
+      const p = mp.byCode[c];
+      return `<button class="p3d__row" data-p3d="${esc(c)}" type="button"><i style="--c:${merColor(p?.meridian)}"></i>
+        <b>${esc(c.replace("OR-", ""))}</b><span>${esc(p?.pinyin || "")}</span><em>${p3d.usage[c]}×</em></button>`;
+    };
+    $("#p3d-list").innerHTML = codes.length ? `
+      ${body.length ? `<h3 class="mp-subtitle">No corpo</h3>${body.map(row).join("")}` : ""}
+      ${ear.length ? `<h3 class="mp-subtitle">Na orelha</h3><div class="p3d__ear">${dollSvg("ear", ear, false)}</div>${ear.map(row).join("")}` : ""}`
+      : '<p class="adm-empty">Nenhum ponto registrado nos protocolos deste paciente ainda.</p>';
+    $("#p3d-modal").showModal();
+    if (!p3d.viewer) {
+      try {
+        const mod = await import("./map3d.js");
+        p3d.viewer = await mod.createViewer($("#p3d-canvas"), {
+          model,
+          getPoints: () => mp.points.filter((p) => p3d.usage[p.code] && p.view !== "ear"),
+          styleOf: (code) => ({ color: merColor(mp.byCode[code]?.meridian), used: true, dim: false, selected: p3d.sel === code }),
+          onSelect: (code) => selectP3d(code),
+        });
+      } catch (err) {
+        console.error(err);
+        $("#p3d-canvas").innerHTML = '<p class="adm-empty">Não foi possível abrir o 3D neste navegador.</p>';
+        return;
+      }
+    } else {
+      p3d.viewer.pause(false);
+      await p3d.viewer.setModel(model);
+    }
+    p3d.viewer.refresh();
+    p3d.viewer.view("front");
+  }
+
+  function selectP3d(code) {
+    p3d.sel = code;
+    $$(".p3d__row").forEach((b) => b.classList.toggle("is-sel", b.dataset.p3d === code));
+    if (mp.byCode[code]?.view === "ear") return;
+    p3d.viewer?.select(code, { fly: true });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-patient-3d]")) return void openPatient3D().catch((err) => toast(err.message, true));
+    const r = e.target.closest("[data-p3d]");
+    if (r) selectP3d(r.dataset.p3d);
+  });
+  $("#p3d-close").addEventListener("click", () => $("#p3d-modal").close());
+  $("#p3d-modal").addEventListener("close", () => p3d.viewer?.pause(true));
 
   // ---------------------------------------------------------------- botões gerais
   document.addEventListener("click", (event) => {

@@ -89,7 +89,19 @@ CREATE TABLE IF NOT EXISTS acupoints (
     notes       TEXT,
     custom      INTEGER NOT NULL DEFAULT 0,
     updated_at  TEXT,
-    pos3d       TEXT
+    pos3d       TEXT,
+    details     TEXT
+);
+-- Parte teórica: diagnósticos da MTC (syndrome), sintomas (symptom) e combinações de pontos (combination).
+CREATE TABLE IF NOT EXISTS theory_items (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind        TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    group_name  TEXT,
+    data        TEXT NOT NULL,
+    points      TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
 );
 -- Configurações gerais (ex.: primary_admin_id = administradora principal).
 CREATE TABLE IF NOT EXISTS settings (
@@ -175,7 +187,19 @@ CREATE TABLE IF NOT EXISTS acupoints (
     notes       TEXT,
     custom      INTEGER NOT NULL DEFAULT 0,
     updated_at  TEXT,
-    pos3d       TEXT
+    pos3d       TEXT,
+    details     TEXT
+);
+-- Parte teórica: diagnósticos da MTC (syndrome), sintomas (symptom) e combinações de pontos (combination).
+CREATE TABLE IF NOT EXISTS theory_items (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    kind        TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    group_name  TEXT,
+    data        TEXT NOT NULL,
+    points      TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
 );
 -- Configurações gerais (ex.: primary_admin_id = administradora principal).
 CREATE TABLE IF NOT EXISTS settings (
@@ -248,7 +272,9 @@ def init_db(app):
         try:
             db.conn.execute(SCHEMA_POSTGRES)
             db.conn.execute("ALTER TABLE acupoints ADD COLUMN IF NOT EXISTS pos3d TEXT")
+            db.conn.execute("ALTER TABLE acupoints ADD COLUMN IF NOT EXISTS details TEXT")
             _seed_acupoints(db)
+            _seed_theory(db)
             db.commit()
         finally:
             db.close()
@@ -262,7 +288,10 @@ def init_db(app):
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(acupoints)").fetchall()}
         if "pos3d" not in cols:
             conn.execute("ALTER TABLE acupoints ADD COLUMN pos3d TEXT")
+        if "details" not in cols:
+            conn.execute("ALTER TABLE acupoints ADD COLUMN details TEXT")
         _seed_acupoints(conn)
+        _seed_theory(conn)
         conn.commit()
     finally:
         conn.close()
@@ -302,3 +331,8 @@ def _seed_acupoints(db):
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
             (pt["code"], pt["meridian"], pt["number"], pt["intl_code"], pt["pinyin"], pt["view"], pt["x"], pt["y"]),
         )
+
+
+def _seed_theory(db):
+    from .routes.theory import seed_theory
+    seed_theory(db)

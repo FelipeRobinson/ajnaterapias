@@ -133,20 +133,25 @@
 
         <!-- ===== MAPA DE PONTOS ===== -->
         <section class="adm-view" id="view-points" hidden>
+            <div class="cli-tabs mp-split" role="tablist" aria-label="Parte do mapa de pontos">
+                <button class="cli-tab is-active" data-mp-split="visual" type="button">🎨 Visual</button>
+                <button class="cli-tab" data-mp-split="theory" type="button">📚 Teórico</button>
+            </div>
+            <div class="th" id="mp-theory" hidden></div>
             <div class="mp-layout">
                 <div class="adm-card mp-map-card">
                     <div class="mp-toolbar">
                         <div class="cli-tabs mp-mode" role="tablist" aria-label="Tipo de visualização">
-                            <button class="cli-tab is-active" data-mp-mode="2d" type="button">2D</button>
-                            <button class="cli-tab" data-mp-mode="3d" type="button">🧊 3D</button>
+                            <button class="cli-tab is-active" data-mp-mode="3d" type="button">🧊 Corpo 3D</button>
+                            <button class="cli-tab" data-mp-mode="ear" type="button">👂 Orelha</button>
                         </div>
                         <div class="cli-tabs mp-views" role="tablist">
                             <button class="cli-tab is-active" data-mp-view="front" type="button">Frente</button>
                             <button class="cli-tab" data-mp-view="back" type="button">Costas</button>
-                            <button class="cli-tab" data-mp-view="ear" type="button">👂 Orelha</button>
                         </div>
                         <input class="adm-search mp-search" id="mp-search" type="search" list="acupoint-list"
                                placeholder="Buscar: VB20, Hegu, E36…" aria-label="Buscar ponto">
+                        <button class="adm-btn adm-btn--ghost adm-btn--sm mp-fs" data-mp-fullscreen type="button" title="Tela cheia">⛶ Tela cheia</button>
                         <div class="mp-zoom">
                             <button class="adm-btn adm-btn--icon" data-mp-zoom="out" type="button" aria-label="Diminuir">−</button>
                             <button class="adm-btn adm-btn--icon" data-mp-zoom="in" type="button" aria-label="Aumentar">+</button>
@@ -156,7 +161,6 @@
                     <div class="mp-regions" aria-label="Aproximar região do corpo">
                         <span>Ver de perto:</span>
                         <button class="adm-btn adm-btn--sm" data-mp-region="head" type="button">🙂 Cabeça</button>
-                        <button class="adm-btn adm-btn--sm" data-mp-region="ear" type="button">👂 Orelha</button>
                         <button class="adm-btn adm-btn--sm" data-mp-region="trunk" type="button">🫁 Tronco</button>
                         <button class="adm-btn adm-btn--sm" data-mp-region="arm" type="button">💪 Braço</button>
                         <button class="adm-btn adm-btn--sm" data-mp-region="hand" type="button">✋ Mão</button>
@@ -164,11 +168,6 @@
                         <button class="adm-btn adm-btn--sm" data-mp-region="foot" type="button">🦶 Pé</button>
                     </div>
                     <div class="mp-layers mp-only-3d" hidden>
-                        <span>Corpo:</span>
-                        <div class="cli-tabs" role="tablist" aria-label="Corpo">
-                            <button class="cli-tab is-active" data-mp-body="m" type="button">♂ Masculino</button>
-                            <button class="cli-tab" data-mp-body="f" type="button">♀ Feminino</button>
-                        </div>
                         <span>Camada:</span>
                         <div class="cli-tabs" role="tablist">
                             <button class="cli-tab is-active" data-mp-layer="skin" type="button">🧍 Pele</button>
@@ -323,6 +322,23 @@
 
     <datalist id="acupoint-list"></datalist>
 
+    <dialog class="adm-modal adm-modal--wide p3d-modal" id="p3d-modal">
+        <div class="p3d">
+            <div class="p3d__head">
+                <div>
+                    <p class="adm-eyebrow">Pontos usados no paciente</p>
+                    <h2 id="p3d-title">—</h2>
+                    <p class="adm-muted" id="p3d-sub"></p>
+                </div>
+                <button class="adm-btn adm-btn--icon" id="p3d-close" type="button" aria-label="Fechar">×</button>
+            </div>
+            <div class="p3d__body">
+                <div class="p3d__canvas" id="p3d-canvas"></div>
+                <aside class="p3d__list" id="p3d-list"></aside>
+            </div>
+        </div>
+    </dialog>
+
     <dialog class="adm-modal adm-modal--small" id="confirm-modal">
         <form method="dialog" class="adm-form">
             <h2 id="confirm-title">Tem certeza?</h2>
@@ -337,6 +353,7 @@
     <div class="adm-toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="../js/admin.js"></script>
+    <script src="../js/theory.js"></script>
 </body>
 
 </html>

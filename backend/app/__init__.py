@@ -42,6 +42,7 @@ def create_app(test_config=None):
     from .routes.patient import patient_bp
     from .routes.public import public_bp
     from .routes.records import records_bp
+    from .routes.theory import theory_bp
 
     if app.config.get("INIT_DB", True):
         init_db(app)
@@ -52,6 +53,7 @@ def create_app(test_config=None):
     app.register_blueprint(crm_bp, url_prefix="/api/admin")
     app.register_blueprint(records_bp, url_prefix="/api/admin")
     app.register_blueprint(acupoints_bp, url_prefix="/api/admin")
+    app.register_blueprint(theory_bp, url_prefix="/api/admin")
     app.teardown_appcontext(close_db)
 
     @app.get("/api/health")

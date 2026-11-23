@@ -7,6 +7,8 @@ import * as THREE from "three";
 import { OrbitControls } from "../vendor/three/OrbitControls.js";
 
 const MODELS = { m: "../models/anatomy/", f: "../models/anatomy-f/" };
+// Proporção de cada corpo (largura X, altura Y, profundidade Z). O feminino fica ~10% mais fino.
+const SHAPE = { m: [1, 1, 1], f: [0.9, 1, 0.93] };
 const LAYER_STYLE = {
   skin: { color: 0xf2c9b1, roughness: 0.72 },
   muscles: { color: 0xb5524a, roughness: 0.55 },
@@ -84,6 +86,7 @@ export async function createViewer(container, opts) {
     const mat = new THREE.MeshStandardMaterial({ ...LAYER_STYLE[key], side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.userData = { key, parts: info.parts };
+    mesh.scale.set(...SHAPE[model]);
     scene.add(mesh);
     layers[key] = mesh;
     loading.hidden = true;
@@ -139,15 +142,27 @@ export async function createViewer(container, opts) {
   let sizeK = 1, lastDist = 0;
   const sizeFor = (d) => Math.min(1.15, Math.max(0.22, d / 3.2));
 
+  // posição do modelo -> posição na cena (aplica a proporção do corpo)
+  function shapeVec(v) {
+    const [sx, sy, sz] = SHAPE[model];
+    const n = new THREE.Vector3(v[3] / sx, v[4] / sy, v[5] / sz).normalize();
+    return [v[0] * sx, v[1] * sy, v[2] * sz, n.x, n.y, n.z];
+  }
+  function unshapeVec(v) {
+    const [sx, sy, sz] = SHAPE[model];
+    const n = new THREE.Vector3(v[3] * sx, v[4] * sy, v[5] * sz).normalize();
+    return [v[0] / sx, v[1] / sy, v[2] / sz, n.x, n.y, n.z].map((x) => Math.round(x * 10000) / 10000);
+  }
+
   function positionsOf(p) {
     let saved = p.pos3d ? (typeof p.pos3d === "string" ? JSON.parse(p.pos3d) : p.pos3d) : null;
     if (Array.isArray(saved)) saved = { m: saved };
     const a = saved?.[model];
     if (a) {
       const bilateral = (defaults3d[p.code] || []).length > 1;
-      return bilateral ? [a, [-a[0], a[1], a[2], -a[3], a[4], a[5]]] : [a];
+      return (bilateral ? [a, [-a[0], a[1], a[2], -a[3], a[4], a[5]]] : [a]).map(shapeVec);
     }
-    return defaults3d[p.code] || [];
+    return (defaults3d[p.code] || []).map(shapeVec);
   }
 
   const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpS = new THREE.Vector3(), tmpC = new THREE.Color();
@@ -238,7 +253,8 @@ export async function createViewer(container, opts) {
   // orelha e mão: enquadra pelos próprios pontos do corpo aberto (serve para os dois corpos)
   const ANCHOR = { ear: ["TA17", 0.32], hand: ["IG4", 0.42] };
   function view(name) {
-    const a = ANCHOR[name] && defaults3d[ANCHOR[name][0]]?.[0];
+    const raw = ANCHOR[name] && defaults3d[ANCHOR[name][0]]?.[0];
+    const a = raw && shapeVec(raw);
     if (a) {
       const pos = new THREE.Vector3(a[0], a[1], a[2]);
       const side = new THREE.Vector3(Math.sign(a[0]) || -1, 0.05, name === "hand" ? 0.9 : 0.15).normalize();
@@ -279,7 +295,7 @@ export async function createViewer(container, opts) {
       const h = hitSurface(true);
       if (h) {
         const n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
-        pickHandler([h.point.x, h.point.y, h.point.z, n.x, n.y, n.z].map((x) => Math.round(x * 10000) / 10000));
+        pickHandler(unshapeVec([h.point.x, h.point.y, h.point.z, n.x, n.y, n.z]));
       }
       return;
     }

@@ -24,11 +24,12 @@ TABLES = {
     "medical_records": ["id", "patient_user_id", "data", "created_at", "updated_at", "updated_by"],
     "session_protocols": ["id", "appointment_id", "patient_user_id", "data", "created_at", "updated_at", "updated_by"],
     "acupoints": ["code", "meridian", "number", "intl_code", "pinyin", "name_pt", "view", "x", "y",
-                  "location", "indications", "notes", "custom", "updated_at", "pos3d"],
+                  "location", "indications", "notes", "custom", "updated_at", "pos3d", "details"],
+    "theory_items": ["id", "kind", "name", "group_name", "data", "points", "created_at", "updated_at"],
     "settings": ["key", "value"],  # inclui qual é a administradora principal
 }
 ORDER = {"acupoints": "code", "settings": "key"}
-HAS_ID = {"users", "appointments", "medical_records", "session_protocols"}
+HAS_ID = {"users", "appointments", "medical_records", "session_protocols", "theory_items"}
 
 simular = "--simular" in sys.argv
 app = create_app({"INIT_DB": False})  # não conecta em nada até a hora de migrar

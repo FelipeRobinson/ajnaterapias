@@ -234,6 +234,7 @@ ajnaterapias/
 │   │       ├── patient.py       🙋 consultas do cliente
 │   │       ├── records.py       📋 prontuário e protocolos (campos definidos aqui)
 │   │       ├── acupoints.py     ☯ mapa de pontos (editar, extras, uso nas sessões)
+│   │       ├── theory.py        📚 parte teórica (diagnósticos, sintomas, combinações)
 │   │       └── public.py        🌐 endereços das páginas
 │   ├── tests/                   🧪 testes automáticos (pytest)
 │   ├── run.py                   🟢 liga o servidor
@@ -441,6 +442,7 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 - [x] 👂 79 pontos de auriculoterapia (GB/T 13734) com mapa da orelha
 - [x] ♀ Corpo feminino no 3D (pele e esqueleto parcial)
 - [x] 🧍 Bonequinho em cada sessão com os pontos usados (clique para marcar)
+- [x] 📚 Parte teórica do mapa: ficha técnica dos pontos, diagnósticos MTC, sintomas e combinações (cesta)
 - [ ] 💰 Módulo financeiro
 - [ ] ☁️ Publicação em hospedagem com domínio próprio
 

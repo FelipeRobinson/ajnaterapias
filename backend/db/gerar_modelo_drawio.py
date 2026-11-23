@@ -38,7 +38,7 @@ TABLES = [
         ("code", "TEXT", "PK"), ("meridian", "TEXT", ""), ("number", "INTEGER", ""), ("intl_code", "TEXT", ""),
         ("pinyin", "TEXT", ""), ("name_pt", "TEXT", ""), ("view", "TEXT front|back|ear", ""), ("x", "REAL", ""),
         ("y", "REAL", ""), ("location", "TEXT", ""), ("indications", "TEXT", ""), ("notes", "TEXT", ""),
-        ("custom", "INTEGER 0/1", ""), ("updated_at", "TEXT", ""), ("pos3d", "TEXT (JSON {m|f: [x,y,z,nx,ny,nz]})", ""),
+        ("custom", "INTEGER 0/1", ""), ("updated_at", "TEXT", ""), ("pos3d", "TEXT (JSON {m|f: [x,y,z,nx,ny,nz]})", ""), ("details", "TEXT (JSON: funções, agulhamento, categorias…)", ""),
     ], "Pontos: 361 OMS + 79 auriculares (meridian=OR) + extras; pos3d por corpo (m/f)"),
     ("account_changes", "#fff2cc", 820, 40, [
         ("id", "INTEGER", "PK"), ("user_id", "INTEGER", "FK→users"), ("token_hash", "TEXT", "UK"),
@@ -49,6 +49,11 @@ TABLES = [
         ("id", "INTEGER", "PK"), ("user_id", "INTEGER", "FK→users"), ("token_hash", "TEXT", "UK"),
         ("expires_at", "TEXT", ""), ("used", "INTEGER 0/1", ""), ("created_at", "TEXT", ""),
     ], "Esqueci minha senha (link por e-mail)"),
+    ("theory_items", "#e1d5e7", 1180, 560, [
+        ("id", "INTEGER", "PK"), ("kind", "TEXT syndrome|symptom|combination|tongue", ""), ("name", "TEXT", ""),
+        ("group_name", "TEXT", ""), ("data", "TEXT (JSON)", ""), ("points", "TEXT (JSON códigos)", ""),
+        ("created_at", "TEXT", ""), ("updated_at", "TEXT", ""),
+    ], "Parte teórica: diagnósticos MTC, sintomas, combinações e língua (foto em data.image)"),
     ("settings", "#f5f5f5", 1180, 400, [
         ("key", "TEXT", "PK"), ("value", "TEXT", ""),
     ], "Configurações (ex.: primary_admin_id = Ellen)"),
@@ -100,7 +105,7 @@ def page_tables():
               "Gerado por backend/db/gerar_modelo_drawio.py")
     cells.append(f'<mxCell id="legend" value="{legend}" style="text;html=1;align=left;verticalAlign=top;'
                  f'fillColor=#ffffff;strokeColor=#cccccc;rounded=1;spacing=10;fontSize=12;" vertex="1" parent="1">'
-                 f'<mxGeometry x="1180" y="560" width="320" height="100" as="geometry"/></mxCell>')
+                 f'<mxGeometry x="40" y="680" width="320" height="100" as="geometry"/></mxCell>')
     return "".join(cells)
 
 
