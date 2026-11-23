@@ -18,13 +18,36 @@ TABLES = [
     ("users", "#dae8fc", 40, 40, [
         ("id", "INTEGER", "PK"), ("name", "TEXT", ""), ("email", "TEXT", "UK"), ("phone", "TEXT", ""),
         ("password_hash", "TEXT", ""), ("role", "TEXT  admin | patient", ""), ("active", "INTEGER 0/1", ""),
-        ("avatar", "TEXT (foto opcional, data:image)", ""), ("created_at", "TEXT", ""),
+        ("avatar", "TEXT (foto opcional, data:image)", ""), ("social", "INTEGER 0/1 (Ambulatório Social)", ""),
+        ("created_at", "TEXT", ""),
     ], "Administradores e clientes (pacientes)"),
     ("appointments", "#d5e8d4", 420, 40, [
         ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users"), ("date", "TEXT AAAA-MM-DD", ""),
         ("start", "TEXT HH:MM", ""), ("end", "TEXT HH:MM", ""),
         ("status", "TEXT requested|scheduled|done|cancelled", ""), ("created_at", "TEXT", ""),
-    ], "Consultas (pedidas pelo cliente, confirmadas pelo admin)"),
+        ("service_id", "INTEGER", "FK→services"), ("price_cents", "INTEGER (centavos)", ""),
+        ("package_id", "INTEGER", "FK→packages"),
+    ], "Consultas (pedidas pelo cliente, confirmadas pelo admin); terapia, valor e pacote usado"),
+    ("services", "#fce4d6", 40, 1120, [
+        ("id", "INTEGER", "PK"), ("name", "TEXT", "UK"), ("price_cents", "INTEGER (centavos)", ""),
+        ("active", "INTEGER 0/1", ""), ("social", "INTEGER 0/1 (Ambulatório Social)", ""), ("created_at", "TEXT", ""),
+    ], "Financeiro: terapias e preço da sessão (inclui a do Ambulatório Social, R$ 50)"),
+    ("packages", "#fce4d6", 420, 1120, [
+        ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users"), ("service_id", "INTEGER", "FK→services"),
+        ("sessions_total", "INTEGER", ""), ("price_cents", "INTEGER (centavos)", ""), ("notes", "TEXT", ""),
+        ("created_at", "TEXT", ""),
+    ], "Financeiro: pacote de N sessões (usadas = consultas com package_id)"),
+    ("payments", "#fce4d6", 820, 1120, [
+        ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users"),
+        ("appointment_id", "INTEGER", "FK→appointments"), ("package_id", "INTEGER", "FK→packages"),
+        ("amount_cents", "INTEGER (centavos)", ""), ("method", "TEXT pix|dinheiro|credito|debito|…", ""),
+        ("date", "TEXT AAAA-MM-DD", ""), ("description", "TEXT", ""), ("created_at", "TEXT", ""),
+    ], "Financeiro: dinheiro recebido (sessão, pacote ou avulso)"),
+    ("expenses", "#fce4d6", 1180, 1120, [
+        ("id", "INTEGER", "PK"), ("date", "TEXT AAAA-MM-DD", ""), ("category", "TEXT", ""),
+        ("description", "TEXT", ""), ("amount_cents", "INTEGER (centavos)", ""), ("method", "TEXT", ""),
+        ("created_at", "TEXT", ""),
+    ], "Financeiro: despesas da clínica"),
     ("schedule_blocks", "#d5e8d4", 420, 780, [
         ("id", "INTEGER", "PK"), ("date", "TEXT AAAA-MM-DD", ""), ("start", "TEXT HH:MM", ""),
         ("end", "TEXT HH:MM (dia inteiro = 00:00–23:59)", ""), ("reason", "TEXT", ""), ("created_at", "TEXT", ""),
@@ -71,6 +94,11 @@ RELATIONS = [
     ("session_protocols", "patient_user_id", "users", "N : 1"),
     ("account_changes", "user_id", "users", "N : 1"),
     ("password_resets", "user_id", "users", "N : 1"),
+    ("appointments", "service_id", "services", "N : 1"),
+    ("appointments", "package_id", "packages", "N : 1"),
+    ("packages", "patient_user_id", "users", "N : 1"),
+    ("payments", "appointment_id", "appointments", "N : 1"),
+    ("payments", "package_id", "packages", "N : 1"),
 ]
 
 ROW_H, W = 26, 320

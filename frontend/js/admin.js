@@ -83,7 +83,7 @@
   const state = { patients: [], view: "overview" };
 
   // ---------------------------------------------------------------- navegação
-  const TITLES = { overview: "Visão geral", agenda: "Agenda", clients: "Clientes", patient: "Ficha do paciente", points: "Mapa de pontos" };
+  const TITLES = { overview: "Visão geral", agenda: "Agenda", clients: "Clientes", patient: "Ficha do paciente", points: "Mapa de pontos", finance: "Financeiro" };
 
   // "#paciente-12" abre a ficha do paciente 12.
   function show(view) {
@@ -109,6 +109,7 @@
     if (state.view === "clients") return loadClients();
     if (state.view === "patient") return loadPatientFile();
     if (state.view === "points") return loadPointsView();
+    if (state.view === "finance") return window.AjnaFinance?.load();
   }
 
   // ---------------------------------------------------------------- visão geral
@@ -500,8 +501,41 @@
     apptForm.elements.date.value = a.date || iso(new Date());
     apptForm.elements.start.value = a.start || "09:00";
     apptForm.elements.end.value = a.end || "10:00";
+    // financeiro: terapia e valor (o preço da terapia é sugerido)
+    try { state.services = (await api("/api/admin/services")).items; } catch { state.services = []; }
+    const money = (c) => (c || c === 0 ? (c / 100).toFixed(2).replace(".", ",") : "");
+    apptForm.elements.service_id.innerHTML = '<option value="">Sem terapia</option>' + state.services
+      .filter((s) => s.active || s.id === a.service_id)
+      .map((s) => `<option value="${s.id}" data-price="${s.price_cents}">${s.social ? "🤝 " : ""}${esc(s.name)}</option>`).join("");
+    apptForm.elements.service_id.value = a.service_id || "";
+    apptForm.elements.price.value = money(a.price_cents ?? null);
     apptModal.showModal();
   }
+
+  apptForm.elements.patient_user_id.addEventListener("change", (e) => {
+    const p = state.patients.find((x) => x.id == e.target.value);
+    const social = (state.services || []).find((s) => s.social && s.active);
+    if (p?.social && social && !apptForm.elements.service_id.value) {
+      apptForm.elements.service_id.value = social.id;
+      apptForm.elements.price.value = (social.price_cents / 100).toFixed(2).replace(".", ",");
+    }
+  });
+
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-social-toggle]");
+    if (!b) return;
+    const on = b.dataset.on !== "1";
+    try {
+      await api(`/api/admin/patients/${b.dataset.socialToggle}`, { method: "PATCH", body: { social: on } });
+      toast(on ? "Paciente incluído no Ambulatório Social." : "Paciente retirado do Ambulatório Social.");
+      refresh();
+    } catch (err) { toast(err.message, true); }
+  });
+
+  apptForm.elements.service_id.addEventListener("change", (e) => {
+    const price = Number(e.target.selectedOptions[0]?.dataset.price || 0);
+    apptForm.elements.price.value = price ? (price / 100).toFixed(2).replace(".", ",") : "";
+  });
 
   // Ao mudar o início, sugere 1h de duração.
   apptForm.elements.start.addEventListener("change", (e) => {
@@ -522,6 +556,15 @@
 
   bindForm(apptModal, async (data) => {
     const id = apptForm.dataset.id;
+    // valor em reais (ex.: 150,00) -> centavos
+    const raw = String(data.price || "").trim();
+    delete data.price;
+    data.service_id = data.service_id || null;
+    if (raw) {
+      const n = Number(raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw);
+      if (!Number.isFinite(n) || n < 0) throw new Error("Valor inválido. Use, por exemplo, 150,00.");
+      data.price_cents = Math.round(n * 100);
+    }
     if (id) {
       delete data.patient_user_id;
       await sendAppointment(`/api/admin/appointments/${id}`, "PATCH", data);
@@ -555,7 +598,7 @@
       <div class="adm-client">
         ${clientAvatar(p)}
         <div>
-          <div class="adm-client__name">${esc(p.name)}</div>
+          <div class="adm-client__name">${esc(p.name)} ${p.social ? '<span class="social-badge" title="Participa do Ambulatório Social">🤝 Ambulatório Social</span>' : ""}</div>
           <div class="adm-muted" style="font-size:.82rem">${p.appointments} consulta(s)</div>
         </div>
         <div class="adm-client__contact">${esc(p.email)}${p.phone ? `<br>${esc(p.phone)}` : ""}</div>
@@ -718,9 +761,12 @@
     $("#pf-head").innerHTML = `
       ${clientAvatar(p, "adm-client__avatar pf-avatar")}
       <div class="pf-head__info">
-        <h2>${esc(p.name)} <span class="adm-badge adm-badge--${p.active ? "active" : "inactive"}">${p.active ? "Ativo" : "Desativado"}</span></h2>
+        <h2>${esc(p.name)} <span class="adm-badge adm-badge--${p.active ? "active" : "inactive"}">${p.active ? "Ativo" : "Desativado"}</span>
+          ${p.social ? '<span class="social-badge" title="Participa do Ambulatório Social">🤝 Ambulatório Social</span>' : ""}</h2>
         <p class="adm-muted">${esc(p.email)}${p.phone ? ` · ${esc(p.phone)}` : ""} · cliente desde ${dateBR(p.created_at)}</p>
       </div>
+      <button class="adm-btn pf-social-btn ${p.social ? "is-on" : ""}" data-social-toggle="${p.id}" data-on="${p.social ? 1 : 0}" type="button"
+        title="Projeto Ambulatório Social de Acupuntura (R$ 50,00 · 60 min)">🤝 ${p.social ? "No Ambulatório Social" : "Incluir no Ambulatório Social"}</button>
       <button class="adm-btn adm-btn--primary pf-3d-btn" data-patient-3d type="button">🧍 Pontos no corpo 3D</button>
       <div class="pf-head__stats">
         <div><b>${done.length}</b><span>sessões realizadas</span></div>
@@ -1768,6 +1814,7 @@
   // Funções do painel usadas pela parte teórica (theory.js)
   window.AjnaAdmin = {
     api, esc, toast, confirmAction,
+    async patients() { await fetchPatients(); return state.patients; },
     dateBR: (s) => (s ? s.slice(0, 10).split("-").reverse().join("/") : ""),
     meridian: (code) => mp.merById[code],
     meridians: () => mp.meridians,

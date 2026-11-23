@@ -30,10 +30,9 @@
         <button class="adm-nav__item" data-view="points" type="button">
             <span class="adm-nav__icon" aria-hidden="true">☯</span><span>Mapa de pontos</span>
         </button>
-        <div class="adm-nav__soon">
-            <span class="adm-nav__label">Em breve</span>
-            <span class="adm-nav__item is-disabled"><span class="adm-nav__icon" aria-hidden="true">$</span><span>Financeiro</span></span>
-        </div>
+        <button class="adm-nav__item" data-view="finance" type="button">
+            <span class="adm-nav__icon" aria-hidden="true">$</span><span>Financeiro</span>
+        </button>
     </nav>
 
     <div class="adm-main">
@@ -132,6 +131,25 @@
             <div id="pf-record"></div>
             <div id="pf-protocols" hidden></div>
             <p class="adm-muted pf-private">🔒 Prontuário e protocolos são visíveis só para a administração. O cliente vê apenas a data e o horário das consultas.</p>
+        </section>
+
+        <!-- ===== FINANCEIRO (só a clínica) ===== -->
+        <section class="adm-view" id="view-finance" hidden>
+            <div class="adm-toolbar fin-toolbar">
+                <div class="cli-tabs fin-tabs" role="tablist" aria-label="Financeiro">
+                    <button class="cli-tab" data-fin-tab="summary" type="button">📊 Resumo</button>
+                    <button class="cli-tab" data-fin-tab="sessions" type="button">💰 Recebimentos</button>
+                    <button class="cli-tab" data-fin-tab="packages" type="button">📦 Pacotes</button>
+                    <button class="cli-tab" data-fin-tab="expenses" type="button">🧾 Despesas</button>
+                    <button class="cli-tab" data-fin-tab="services" type="button">🏷️ Terapias e preços</button>
+                </div>
+                <div class="adm-week" id="fin-period">
+                    <button class="adm-btn adm-btn--icon" data-fin-step="-1" type="button" aria-label="Anterior">‹</button>
+                    <strong id="fin-label">—</strong>
+                    <button class="adm-btn adm-btn--icon" data-fin-step="1" type="button" aria-label="Próximo">›</button>
+                </div>
+            </div>
+            <div id="fin-body" class="fin-body"></div>
         </section>
 
         <!-- ===== MAPA DE PONTOS ===== -->
@@ -285,6 +303,18 @@
         </form>
     </dialog>
 
+    <dialog class="adm-modal" id="fin-modal">
+        <form method="dialog" class="adm-form" id="fin-form">
+            <h2 id="fin-modal-title">—</h2>
+            <div id="fin-fields" class="fin-fields"></div>
+            <p class="adm-form__error" role="alert"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Cancelar</button>
+                <button class="adm-btn adm-btn--primary" value="save" type="submit">Salvar</button>
+            </div>
+        </form>
+    </dialog>
+
     <dialog class="adm-modal" id="appointment-modal">
         <form method="dialog" class="adm-form" id="appointment-form">
             <h2 id="appointment-modal-title">Nova consulta</h2>
@@ -293,6 +323,10 @@
             <div class="adm-form__row">
                 <label>Início<input name="start" type="time" required step="300"></label>
                 <label>Término<input name="end" type="time" required step="300"></label>
+            </div>
+            <div class="adm-form__row">
+                <label>Terapia<select name="service_id"></select></label>
+                <label>Valor<span class="fin-money"><em>R$</em><input name="price" inputmode="decimal" placeholder="0,00"></span></label>
             </div>
             <p class="adm-form__error" role="alert"></p>
             <div class="adm-form__actions">
@@ -374,6 +408,7 @@
     <script src="../js/shell.js"></script>
     <script src="../js/admin.js"></script>
     <script src="../js/theory.js"></script>
+    <script src="../js/finance.js"></script>
 </body>
 
 </html>

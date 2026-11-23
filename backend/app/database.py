@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     role          TEXT NOT NULL CHECK (role IN ('admin', 'patient')),
     active        INTEGER NOT NULL DEFAULT 1,
     avatar        TEXT,
+    social        INTEGER NOT NULL DEFAULT 0,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -45,6 +46,50 @@ CREATE TABLE IF NOT EXISTS schedule_blocks (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_schedule_blocks_date ON schedule_blocks(date);
+
+-- Financeiro (só a clínica vê). Valores em centavos.
+CREATE TABLE IF NOT EXISTS services (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL UNIQUE,
+    price_cents INTEGER NOT NULL DEFAULT 0,
+    active      INTEGER NOT NULL DEFAULT 1,
+    social      INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS packages (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_user_id INTEGER NOT NULL REFERENCES users(id),
+    service_id      INTEGER REFERENCES services(id),
+    sessions_total  INTEGER NOT NULL,
+    price_cents     INTEGER NOT NULL DEFAULT 0,
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_user_id INTEGER REFERENCES users(id),
+    appointment_id  INTEGER REFERENCES appointments(id),
+    package_id      INTEGER REFERENCES packages(id),
+    amount_cents    INTEGER NOT NULL,
+    method          TEXT NOT NULL,
+    date            TEXT NOT NULL,
+    description     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    date         TEXT NOT NULL,
+    category     TEXT NOT NULL,
+    description  TEXT,
+    amount_cents INTEGER NOT NULL,
+    method       TEXT,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 
 -- Alterações de login pendentes, confirmadas por link enviado ao e-mail.
 CREATE TABLE IF NOT EXISTS account_changes (
@@ -132,6 +177,7 @@ CREATE TABLE IF NOT EXISTS users (
     role          TEXT NOT NULL CHECK (role IN ('admin', 'patient')),
     active        INTEGER NOT NULL DEFAULT 1,
     avatar        TEXT,
+    social        INTEGER NOT NULL DEFAULT 0,
     created_at    TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
 );
 
@@ -156,6 +202,50 @@ CREATE TABLE IF NOT EXISTS schedule_blocks (
     created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
 );
 CREATE INDEX IF NOT EXISTS idx_schedule_blocks_date ON schedule_blocks(date);
+
+-- Financeiro (só a clínica vê). Valores em centavos.
+CREATE TABLE IF NOT EXISTS services (
+    id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    price_cents INTEGER NOT NULL DEFAULT 0,
+    active      INTEGER NOT NULL DEFAULT 1,
+    social      INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+);
+
+CREATE TABLE IF NOT EXISTS packages (
+    id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    patient_user_id INTEGER NOT NULL REFERENCES users(id),
+    service_id      INTEGER REFERENCES services(id),
+    sessions_total  INTEGER NOT NULL,
+    price_cents     INTEGER NOT NULL DEFAULT 0,
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    patient_user_id INTEGER REFERENCES users(id),
+    appointment_id  INTEGER REFERENCES appointments(id),
+    package_id      INTEGER REFERENCES packages(id),
+    amount_cents    INTEGER NOT NULL,
+    method          TEXT NOT NULL,
+    date            TEXT NOT NULL,
+    description     TEXT,
+    created_at      TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+);
+CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id           INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    date         TEXT NOT NULL,
+    category     TEXT NOT NULL,
+    description  TEXT,
+    amount_cents INTEGER NOT NULL,
+    method       TEXT,
+    created_at   TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 
 CREATE TABLE IF NOT EXISTS account_changes (
     id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -298,6 +388,11 @@ def init_db(app):
             db.conn.execute("ALTER TABLE acupoints ADD COLUMN IF NOT EXISTS pos3d TEXT")
             db.conn.execute("ALTER TABLE acupoints ADD COLUMN IF NOT EXISTS details TEXT")
             db.conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT")
+            for col in ("service_id INTEGER", "price_cents INTEGER", "package_id INTEGER"):
+                db.conn.execute(f"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS {col}")
+            db.conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS social INTEGER NOT NULL DEFAULT 0")
+            db.conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS social INTEGER NOT NULL DEFAULT 0")
+            _seed_services(db)
             _seed_acupoints(db)
             _seed_theory(db)
             db.commit()
@@ -317,6 +412,15 @@ def init_db(app):
             conn.execute("ALTER TABLE acupoints ADD COLUMN details TEXT")
         if "avatar" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}:
             conn.execute("ALTER TABLE users ADD COLUMN avatar TEXT")  # foto de perfil (opcional)
+        acols = {r["name"] for r in conn.execute("PRAGMA table_info(appointments)").fetchall()}
+        for col in ("service_id INTEGER", "price_cents INTEGER", "package_id INTEGER"):  # financeiro
+            if col.split()[0] not in acols:
+                conn.execute(f"ALTER TABLE appointments ADD COLUMN {col}")
+        # Ambulatório Social (projeto da clínica): marca no paciente e na terapia
+        for table in ("users", "services"):
+            if "social" not in {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN social INTEGER NOT NULL DEFAULT 0")
+        _seed_services(conn)
         _seed_acupoints(conn)
         _seed_theory(conn)
         conn.commit()
@@ -358,6 +462,21 @@ def _seed_acupoints(db):
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
             (pt["code"], pt["meridian"], pt["number"], pt["intl_code"], pt["pinyin"], pt["view"], pt["x"], pt["y"]),
         )
+
+
+DEFAULT_SERVICES = ["Acupuntura", "Auriculoterapia", "Reiki", "Ventosaterapia", "Moxabustão"]
+
+
+SOCIAL_SERVICE = "Ambulatório Social – Acupuntura"  # R$ 50,00 · 60 min (acupuntura sistêmica + auriculoterapia)
+
+
+def _seed_services(db):
+    """Terapias iniciais (preço 0 até a clínica definir no Financeiro) e a do Ambulatório Social."""
+    if not db.execute("SELECT COUNT(*) AS n FROM services").fetchone()["n"]:
+        for name in DEFAULT_SERVICES:
+            db.execute("INSERT INTO services (name, price_cents) VALUES (?, 0)", (name,))
+    if not db.execute("SELECT 1 FROM services WHERE social = 1").fetchone():
+        db.execute("INSERT INTO services (name, price_cents, social) VALUES (?, 5000, 1)", (SOCIAL_SERVICE,))
 
 
 def _seed_theory(db):

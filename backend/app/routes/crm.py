@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash
 
 from ..calendar_rules import is_closed
 from ..database import IntegrityError, get_db
+from .finance import apply_package
 from ..security import csrf_required, login_required, roles_required
 
 crm_bp = Blueprint("crm", __name__)
@@ -70,7 +71,7 @@ def dashboard():
 @_admin
 def patients():
     rows = get_db().execute(
-        """SELECT u.id, u.name, u.email, u.phone, u.active, u.avatar, u.created_at,
+        """SELECT u.id, u.name, u.email, u.phone, u.active, u.avatar, u.social, u.created_at,
                   (SELECT COUNT(*) FROM appointments a WHERE a.patient_user_id = u.id) AS appointments
            FROM users u WHERE u.role = 'patient' ORDER BY u.name"""
     ).fetchall()
@@ -129,6 +130,8 @@ def update_patient(user_id):
         sets.append("phone = ?"); params.append(str(payload["phone"] or "").strip() or None)
     if "active" in payload:
         sets.append("active = ?"); params.append(1 if payload["active"] else 0)
+    if "social" in payload:  # participa do Ambulatório Social
+        sets.append("social = ?"); params.append(1 if payload["social"] else 0)
     if payload.get("password"):
         password = str(payload["password"])
         if len(password) < 8:
@@ -187,7 +190,31 @@ def _read_appointment(payload, partial=False):
         if payload["status"] not in STATUSES:
             return None, "Situação inválida."
         data["status"] = payload["status"]
+    # financeiro: terapia e valor da sessão (centavos)
+    if "service_id" in payload:
+        sid = payload.get("service_id")
+        try:
+            data["service_id"] = int(sid) if sid not in (None, "") else None
+        except (TypeError, ValueError):
+            return None, "Terapia inválida."
+    if "price_cents" in payload and payload.get("price_cents") not in (None, ""):
+        try:
+            data["price_cents"] = int(payload["price_cents"])
+        except (TypeError, ValueError):
+            return None, "Valor inválido."
+        if not 0 <= data["price_cents"] <= 100_000_000:
+            return None, "Valor inválido."
     return data, None
+
+
+def _fill_price(db, data):
+    """Escolheu a terapia e não digitou valor: usa o preço da terapia."""
+    if data.get("service_id") and "price_cents" not in data:
+        row = db.execute("SELECT price_cents FROM services WHERE id = ?", (data["service_id"],)).fetchone()
+        if not row:
+            return "Terapia não encontrada."
+        data["price_cents"] = row["price_cents"]
+    return None
 
 
 def _conflict(db, day, start, end, ignore_id=None):
@@ -266,8 +293,9 @@ def appointments():
         return jsonify(error="Período inválido."), 400
     rows = get_db().execute(
         """SELECT a.id, a.patient_user_id, a.date, a.start, a."end", a.status, u.name AS patient_name, u.phone,
+                  a.service_id, a.price_cents, a.package_id, s.name AS service_name,
                   (SELECT COUNT(*) FROM session_protocols sp WHERE sp.appointment_id = a.id) AS has_protocol
-           FROM appointments a JOIN users u ON u.id = a.patient_user_id
+           FROM appointments a JOIN users u ON u.id = a.patient_user_id LEFT JOIN services s ON s.id = a.service_id
            WHERE a.date BETWEEN ? AND ? ORDER BY a.date, a.start""",
         (start, end),
     ).fetchall()
@@ -293,9 +321,12 @@ def create_appointment():
         return jsonify(error="Esse horário está marcado como indisponível. Libere-o na agenda antes de agendar."), 409
     if is_closed(date.fromisoformat(data["date"])) and not (request.get_json(silent=True) or {}).get("force"):
         return jsonify(error="Esse é um dia sem atendimento (só há atendimento de terça a quinta).", closed_day=True), 409
+    error = _fill_price(db, data)
+    if error:
+        return jsonify(error=error), 400
     db.execute(
-        'INSERT INTO appointments (patient_user_id, date, start, "end") VALUES (?, ?, ?, ?)',
-        (data["patient_user_id"], data["date"], data["start"], data["end"]),
+        'INSERT INTO appointments (patient_user_id, date, start, "end", service_id, price_cents) VALUES (?, ?, ?, ?, ?, ?)',
+        (data["patient_user_id"], data["date"], data["start"], data["end"], data.get("service_id"), data.get("price_cents")),
     )
     db.commit()
     return jsonify(ok=True), 201
@@ -326,8 +357,16 @@ def update_appointment(appointment_id):
     force = (request.get_json(silent=True) or {}).get("force")
     if "date" in data and data["date"] != current["date"] and is_closed(date.fromisoformat(data["date"])) and not force:
         return jsonify(error="Esse é um dia sem atendimento (só há atendimento de terça a quinta).", closed_day=True), 409
+    if data.get("service_id") != current["service_id"] or "price_cents" in data:
+        error = _fill_price(db, data)
+        if error:
+            return jsonify(error=error), 400
     columns = ", ".join(f'"{k}" = ?' for k in data)
     db.execute(f"UPDATE appointments SET {columns} WHERE id = ?", (*data.values(), appointment_id))
+    if data.get("status") == "done":
+        apply_package(db, appointment_id)  # desconta do pacote do cliente, se houver
+    if data.get("status") == "cancelled":
+        db.execute("UPDATE appointments SET package_id = NULL WHERE id = ?", (appointment_id,))  # devolve ao pacote
     db.commit()
     return jsonify(ok=True)
 

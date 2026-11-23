@@ -140,7 +140,7 @@ def _clean(form, payload, codes=frozenset()):
 
 def _patient(db, patient_id):
     return db.execute(
-        "SELECT id, name, email, phone, active, avatar, created_at FROM users WHERE id = ? AND role = 'patient'", (patient_id,)
+        "SELECT id, name, email, phone, active, avatar, social, created_at FROM users WHERE id = ? AND role = 'patient'", (patient_id,)
     ).fetchone()
 
 
