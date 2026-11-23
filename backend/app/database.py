@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     active        INTEGER NOT NULL DEFAULT 1,
     avatar        TEXT,
     social        INTEGER NOT NULL DEFAULT 0,
+    profile       TEXT,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -178,6 +179,7 @@ CREATE TABLE IF NOT EXISTS users (
     active        INTEGER NOT NULL DEFAULT 1,
     avatar        TEXT,
     social        INTEGER NOT NULL DEFAULT 0,
+    profile       TEXT,
     created_at    TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
 );
 
@@ -391,6 +393,7 @@ def init_db(app):
             for col in ("service_id INTEGER", "price_cents INTEGER", "package_id INTEGER"):
                 db.conn.execute(f"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS {col}")
             db.conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS social INTEGER NOT NULL DEFAULT 0")
+            db.conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile TEXT")
             db.conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS social INTEGER NOT NULL DEFAULT 0")
             _seed_services(db)
             _seed_acupoints(db)
@@ -420,6 +423,8 @@ def init_db(app):
         for table in ("users", "services"):
             if "social" not in {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN social INTEGER NOT NULL DEFAULT 0")
+        if "profile" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}:
+            conn.execute("ALTER TABLE users ADD COLUMN profile TEXT")  # dados pessoais (JSON)
         _seed_services(conn)
         _seed_acupoints(conn)
         _seed_theory(conn)

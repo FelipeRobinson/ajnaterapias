@@ -137,3 +137,25 @@ def test_ambulatorio_social(tmp_path):
     c.post("/api/admin/finance/payments", headers=h, json={"appointment_id": a["id"], "amount_cents": 5000, "method": "pix", "date": TODAY})
     s = c.get(f"/api/admin/finance/summary?year={YEAR}").get_json()["social"]
     assert s == {"sessions": 1, "patients": 1, "income_cents": 5000}
+
+
+def test_report_filters(tmp_path):
+    c, h = admin_client(tmp_path)
+    pid = new_patient(c, h)
+    acu = _service(c, "Acupuntura")
+    a = _appt(c, h, pid, "09:00", service_id=acu["id"], price_cents=15000)
+    c.post("/api/admin/finance/payments", headers=h, json={"appointment_id": a["id"], "amount_cents": 15000, "method": "pix", "date": TODAY})
+    c.post("/api/admin/finance/payments", headers=h, json={"patient_user_id": pid, "amount_cents": 2000, "method": "dinheiro", "date": TODAY})
+    c.post("/api/admin/finance/expenses", headers=h, json={"date": TODAY, "category": "Aluguel", "amount_cents": 80000, "method": "pix"})
+    q = f"/api/admin/finance/report?from={TODAY}&to={TODAY}"
+    r = c.get(q).get_json()
+    assert (r["income_cents"], r["expense_cents"], r["balance_cents"]) == (17000, 80000, -63000)
+    assert {x["origin"] for x in r["items"] if x["type"] == "income"} == {"Sessão", "Avulso"}
+    assert c.get(q + "&kind=income&method=pix").get_json()["income_cents"] == 15000
+    assert c.get(q + f"&service_id={acu['id']}").get_json()["items"][0]["service"] == "Acupuntura"
+    assert c.get(q + "&category=Aluguel").get_json()["income_cents"] == 0  # categoria é só de despesa
+    assert c.get(q + "&origin=Avulso").get_json()["income_cents"] == 2000
+    assert c.get(q + "&kind=expense").get_json()["income_cents"] == 0
+    assert c.get("/api/admin/finance/report").status_code == 400
+    s = c.get(f"/api/admin/finance/summary?year={YEAR}").get_json()
+    assert s["by_service"]["Acupuntura"] == 15000 and s["social_split"] == {"social": 0, "private": 17000}

@@ -426,7 +426,7 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 | ✅ `test_duplicate_email_is_rejected` | E-mail repetido é recusado e o banco continua consistente |
 | ✅ `test_theory.py` | Parte teórica: classificações, ficha editável, diagnósticos/sintomas/combinações, galeria da língua e bloqueio para pacientes |
 
-Ao todo são **52 testes**.
+Ao todo são **55 testes**.
 
 ---
 
@@ -461,6 +461,11 @@ Ao todo são **52 testes**.
 - [x] 📚 Parte teórica do mapa: ficha técnica dos pontos, diagnósticos MTC, sintomas e combinações (cesta)
 - [x] 👅 Galeria de diagnóstico pela língua: 31 aspectos com fotos e diagnósticos relacionados
 - [x] 💰 Financeiro: terapias e preços, recebimentos, pacotes de sessões, despesas e resumo anual
+- [x] 📈 Gráficos do financeiro: barras, saldo acumulado, resultado do mês e pizzas (categoria, forma, terapia, particular x social)
+- [x] 📄 Relatório financeiro com filtros (período, tipo, forma, categoria, terapia, cliente, origem, Ambulatório Social) em planilha (Excel) e PDF
+- [x] 🖨️ Relatórios do paciente: prontuário completo, ficha de anamnese e ficha de cada consulta (imprimir / PDF)
+- [x] 🪪 Dados pessoais do cliente (CPF, endereço, contato de emergência…) editáveis por ele e pela clínica
+- [x] 📈 Relatório de acompanhamento do paciente (evolução, gráfico de intensidade, técnicas e pontos)
 - [x] 🤝 Ambulatório Social de Acupuntura: marca no paciente, terapia própria (R$ 50,00 · 60 min) e totais no financeiro
 - [ ] ☁️ Publicação em hospedagem com domínio próprio
 

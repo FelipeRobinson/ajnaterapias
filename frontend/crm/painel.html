@@ -125,12 +125,14 @@
             <button class="adm-btn adm-btn--link adm-back" data-goto="clients" type="button">← Voltar para clientes</button>
             <div class="adm-card pf-head" id="pf-head"></div>
             <div class="cli-tabs" role="tablist">
+                <button class="cli-tab" data-pf-tab="personal" type="button" role="tab">🪪 Dados pessoais</button>
                 <button class="cli-tab is-active" data-pf-tab="record" type="button" role="tab">📋 Prontuário</button>
                 <button class="cli-tab" data-pf-tab="protocols" type="button" role="tab">📝 Protocolos <span id="pf-count"></span></button>
             </div>
+            <div id="pf-personal" hidden></div>
             <div id="pf-record"></div>
             <div id="pf-protocols" hidden></div>
-            <p class="adm-muted pf-private">🔒 Prontuário e protocolos são visíveis só para a administração. O cliente vê apenas a data e o horário das consultas.</p>
+            <p class="adm-muted pf-private">🔒 Prontuário e protocolos são visíveis só para a administração. Os dados pessoais o cliente também vê e edita em “Meus dados”.</p>
         </section>
 
         <!-- ===== FINANCEIRO (só a clínica) ===== -->
@@ -142,6 +144,7 @@
                     <button class="cli-tab" data-fin-tab="packages" type="button">📦 Pacotes</button>
                     <button class="cli-tab" data-fin-tab="expenses" type="button">🧾 Despesas</button>
                     <button class="cli-tab" data-fin-tab="services" type="button">🏷️ Terapias e preços</button>
+                    <button class="cli-tab" data-fin-tab="report" type="button">📄 Relatórios</button>
                 </div>
                 <div class="adm-week" id="fin-period">
                     <button class="adm-btn adm-btn--icon" data-fin-step="-1" type="button" aria-label="Anterior">‹</button>
@@ -303,6 +306,19 @@
         </form>
     </dialog>
 
+    <dialog class="adm-modal" id="print-menu">
+        <div class="adm-form">
+            <h2>🖨️ Relatórios do paciente</h2>
+            <p class="adm-muted">Abre uma página pronta para imprimir ou salvar em PDF.</p>
+            <button class="adm-btn adm-btn--primary" data-print-patient="full" type="button">📚 Prontuário completo (anamnese + acompanhamento + consultas)</button>
+            <button class="adm-btn" data-print-patient="record" type="button">📋 Ficha de anamnese + acompanhamento</button>
+            <button class="adm-btn" data-print-patient="followup" type="button">📈 Só o relatório de acompanhamento</button>
+            <h3 class="mp-subtitle">Ficha de uma consulta</h3>
+            <div class="print-menu__sessions" id="print-menu-sessions"></div>
+            <div class="adm-form__actions"><button class="adm-btn adm-btn--ghost" type="button" onclick="this.closest('dialog').close()">Fechar</button></div>
+        </div>
+    </dialog>
+
     <dialog class="adm-modal" id="fin-modal">
         <form method="dialog" class="adm-form" id="fin-form">
             <h2 id="fin-modal-title">—</h2>
@@ -406,6 +422,7 @@
     <div class="adm-toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="../js/shell.js"></script>
+    <script src="../js/print.js"></script>
     <script src="../js/admin.js"></script>
     <script src="../js/theory.js"></script>
     <script src="../js/finance.js"></script>

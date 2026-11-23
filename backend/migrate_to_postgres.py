@@ -19,7 +19,7 @@ from app.database import _PostgresDB, init_db
 
 # Tabelas na ordem certa (users antes de appointments, por causa da chave estrangeira).
 TABLES = {
-    "users": ["id", "name", "email", "phone", "password_hash", "role", "active", "avatar", "social", "created_at"],
+    "users": ["id", "name", "email", "phone", "password_hash", "role", "active", "avatar", "social", "profile", "created_at"],
     "services": ["id", "name", "price_cents", "active", "social", "created_at"],
     "appointments": ["id", "patient_user_id", "date", "start", '"end"', "status", "created_at",
                      "service_id", "price_cents", "package_id"],

@@ -43,28 +43,20 @@
     await boot();
     $$("[data-fin-tab]").forEach((b) => b.classList.toggle("is-active", b.dataset.finTab === st.tab));
     const yearTab = st.tab === "summary";
-    const noPeriod = st.tab === "services" || st.tab === "packages";
+    const noPeriod = ["services", "packages", "report"].includes(st.tab);
     $("#fin-period").hidden = noPeriod;
     $("#fin-label").textContent = yearTab ? String(st.year) : monthLabel();
     const box = $("#fin-body");
     box.innerHTML = '<p class="adm-muted">Carregando…</p>';
     const render = { summary: renderSummary, sessions: renderSessions, packages: renderPackages,
-      expenses: renderExpenses, services: renderServices }[st.tab];
+      expenses: renderExpenses, services: renderServices, report: renderReport }[st.tab];
     box.innerHTML = await render();
   }
 
   // ---------------------------------------------------------------- resumo (ano)
   async function renderSummary() {
     const s = await A().api(`/api/admin/finance/summary?year=${st.year}`);
-    const max = Math.max(1, ...s.months.flatMap((m) => [m.income_cents, m.expense_cents]));
-    const bars = s.months.map((m, i) => `
-      <div class="fin-bar" title="${MONTHS[i]}: entradas ${brl(m.income_cents)} · despesas ${brl(m.expense_cents)}">
-        <div class="fin-bar__cols">
-          <i class="fin-bar__in" style="height:${(m.income_cents / max) * 100}%"></i>
-          <i class="fin-bar__out" style="height:${(m.expense_cents / max) * 100}%"></i>
-        </div>
-        <span>${MONTHS[i]}</span>
-      </div>`).join("");
+    st.summary = s;
     const list = (obj, labels = {}) => Object.entries(obj).sort((a, b) => b[1] - a[1])
       .map(([k, v]) => `<li><span>${esc(labels[k] || k)}</span><b>${brl(v)}</b></li>`).join("") || '<li class="adm-muted">Nada no período.</li>';
     const rows = s.months.map((m, i) => `<tr><td>${MONTHS[i]}</td><td class="fin-in">${brl(m.income_cents)}</td>
@@ -80,9 +72,10 @@
       </div>
       <div class="adm-grid">
         <section class="adm-card">
-          <div class="adm-card__head"><h2>Entradas x despesas por mês</h2>
-            <span class="fin-legend"><i class="fin-bar__in"></i> Entradas <i class="fin-bar__out"></i> Despesas</span></div>
-          <div class="fin-chart">${bars}</div>
+          <div class="adm-card__head"><h2 id="fin-chart-title">${CHARTS[st.chart] || CHARTS.bars}</h2></div>
+          <div class="fin-chart-picker" role="tablist" aria-label="Escolha o gráfico">${Object.entries(CHARTS).map(([k, v]) =>
+            `<button class="adm-btn adm-btn--sm ${k === st.chart ? "is-active" : ""}" data-fin-chart="${k}" type="button">${v}</button>`).join("")}</div>
+          <div id="fin-chart-box">${chartHtml(s)}</div>
           <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Mês</th><th>Entradas</th><th>Despesas</th><th>Saldo</th></tr></thead><tbody>${rows}</tbody></table></div>
         </section>
         <div class="fin-side">
@@ -91,6 +84,261 @@
         </div>
       </div>`;
   }
+
+  // ---------------------------------------------------------------- gráficos (SVG, sem bibliotecas)
+  const PALETTE = ["#7800b4", "#2f9e5b", "#e08a1e", "#d9566f", "#2a7fd4", "#14a3a3", "#bd72e2", "#8a6d3b", "#5b5b7a", "#c2185b"];
+  const CHARTS = {
+    bars: "📊 Entradas x despesas (mês a mês)",
+    balance: "📈 Saldo acumulado no ano",
+    category: "🍩 Despesas por categoria",
+    method: "🍩 Recebido por forma de pagamento",
+    service: "🍩 Receita por terapia",
+    social: "🍩 Particular x Ambulatório Social",
+    net: "📊 Resultado de cada mês (lucro / prejuízo)",
+  };
+  st.chart = localStorage.getItem("ajna-fin-chart") || "bars";
+
+  const short = (c) => {
+    const v = c / 100;
+    return v >= 1000 ? `R$ ${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : `R$ ${v.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
+  };
+
+  function svgBars(series, { colors, labels, signed = false }) {
+    const W = 640, H = 240, P = { l: 58, r: 10, t: 12, b: 26 };
+    const vals = series.flat();
+    const max = Math.max(1, ...vals.map(Math.abs));
+    const min = signed ? -max : 0;
+    const y = (v) => P.t + (H - P.t - P.b) * (1 - (v - min) / (max - min));
+    const n = labels.length, slot = (W - P.l - P.r) / n, bw = Math.min(22, (slot - 8) / series.length);
+    const grid = [0, .25, .5, .75, 1].map((f) => min + (max - min) * f).map((v) =>
+      `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" class="ch-grid"/><text x="${P.l - 6}" y="${y(v) + 4}" class="ch-ax" text-anchor="end">${short(v)}</text>`).join("");
+    const bars = labels.map((lab, i) => series.map((s, k) => {
+      const v = s[i], x = P.l + slot * i + (slot - bw * series.length) / 2 + bw * k;
+      const top = Math.min(y(v), y(0)), h = Math.max(1, Math.abs(y(v) - y(0)));
+      const color = typeof colors[k] === "function" ? colors[k](v) : colors[k];
+      return `<rect x="${x}" y="${top}" width="${bw - 2}" height="${h}" rx="3" fill="${color}"><title>${lab}: ${brl(v)}</title></rect>`;
+    }).join("") + `<text x="${P.l + slot * i + slot / 2}" y="${H - 8}" class="ch-ax" text-anchor="middle">${lab}</text>`).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" class="fin-svg" role="img">${grid}<line x1="${P.l}" x2="${W - P.r}" y1="${y(0)}" y2="${y(0)}" class="ch-zero"/>${bars}</svg>`;
+  }
+
+  function svgLine(values, labels) {
+    const W = 640, H = 240, P = { l: 58, r: 14, t: 14, b: 26 };
+    const max = Math.max(1, ...values), min = Math.min(0, ...values);
+    const x = (i) => P.l + ((W - P.l - P.r) / (labels.length - 1)) * i;
+    const y = (v) => P.t + (H - P.t - P.b) * (1 - (v - min) / (max - min || 1));
+    const pts = values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+    const grid = [0, .25, .5, .75, 1].map((f) => min + (max - min) * f).map((v) =>
+      `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" class="ch-grid"/><text x="${P.l - 6}" y="${y(v) + 4}" class="ch-ax" text-anchor="end">${short(v)}</text>`).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" class="fin-svg" role="img">${grid}
+      <line x1="${P.l}" x2="${W - P.r}" y1="${y(0)}" y2="${y(0)}" class="ch-zero"/>
+      <polygon points="${x(0)},${y(0)} ${pts} ${x(values.length - 1)},${y(0)}" fill="rgba(120,0,180,.10)"/>
+      <polyline points="${pts}" fill="none" stroke="#7800b4" stroke-width="3" stroke-linejoin="round"/>
+      ${values.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="4.5" fill="${v < 0 ? "#d9566f" : "#7800b4"}"><title>${labels[i]}: ${brl(v)}</title></circle>
+        <text x="${x(i)}" y="${H - 8}" class="ch-ax" text-anchor="middle">${labels[i]}</text>`).join("")}</svg>`;
+  }
+
+  function svgDonut(entries) {
+    const total = entries.reduce((t, [, v]) => t + v, 0);
+    if (!total) return '<p class="adm-empty">Nada lançado neste ano ainda.</p>';
+    const R = 80, r = 50, C = 100;
+    let a0 = -Math.PI / 2;
+    const arcs = entries.map(([label, v], i) => {
+      const a1 = a0 + (v / total) * Math.PI * 2;
+      const big = a1 - a0 > Math.PI ? 1 : 0;
+      const p = (a, rad) => `${C + rad * Math.cos(a)},${C + rad * Math.sin(a)}`;
+      const d = entries.length === 1
+        ? `M ${C} ${C - R} A ${R} ${R} 0 1 1 ${C - .01} ${C - R} L ${C - .01} ${C - r} A ${r} ${r} 0 1 0 ${C} ${C - r} Z`
+        : `M ${p(a0, R)} A ${R} ${R} 0 ${big} 1 ${p(a1, R)} L ${p(a1, r)} A ${r} ${r} 0 ${big} 0 ${p(a0, r)} Z`;
+      a0 = a1;
+      return `<path d="${d}" fill="${PALETTE[i % PALETTE.length]}"><title>${esc(label)}: ${brl(v)}</title></path>`;
+    }).join("");
+    const legend = entries.map(([label, v], i) => `<li><i style="background:${PALETTE[i % PALETTE.length]}"></i>
+      <span>${esc(label)}</span><b>${brl(v)}</b><em>${Math.round((v / total) * 100)}%</em></li>`).join("");
+    return `<div class="fin-donut"><svg viewBox="0 0 200 200" role="img">${arcs}
+      <text x="100" y="96" text-anchor="middle" class="ch-total-l">Total</text><text x="100" y="116" text-anchor="middle" class="ch-total">${short(total)}</text></svg>
+      <ul class="fin-donut__legend">${legend}</ul></div>`;
+  }
+
+  function chartHtml(s) {
+    const labels = MONTHS;
+    const sorted = (obj, names = {}) => Object.entries(obj).map(([k, v]) => [names[k] || k, v]).sort((a, b) => b[1] - a[1]);
+    switch (st.chart) {
+      case "balance": {
+        let acc = 0;
+        return svgLine(s.months.map((m) => (acc += m.balance_cents)), labels);
+      }
+      case "category": return svgDonut(sorted(s.by_category));
+      case "method": return svgDonut(sorted(s.by_method, st.opts.methods));
+      case "service": return svgDonut(sorted(s.by_service));
+      case "social": return svgDonut([["Particular", s.social_split.private], ["🤝 Ambulatório Social", s.social_split.social]].filter(([, v]) => v));
+      case "net": return svgBars([s.months.map((m) => m.balance_cents)], { labels, signed: true, colors: [(v) => (v < 0 ? "#d9566f" : "#2f9e5b")] });
+      default: return `<span class="fin-legend"><i class="fin-bar__in"></i> Entradas <i class="fin-bar__out"></i> Despesas</span>` +
+        svgBars([s.months.map((m) => m.income_cents), s.months.map((m) => m.expense_cents)], { labels, colors: ["#2f9e5b", "#d9566f"] });
+    }
+  }
+
+  // ---------------------------------------------------------------- relatórios (filtros + Excel/PDF)
+  const yStart = () => `${new Date().getFullYear()}-01-01`;
+  st.rep = { from: yStart(), to: iso(new Date()), kind: "all", method: "", category: "", service_id: "", patient_id: "", origin: "", social: "" };
+  const KIND = { all: "Entradas e despesas", income: "Só entradas", expense: "Só despesas" };
+
+  function repQuery() {
+    const q = new URLSearchParams();
+    Object.entries(st.rep).forEach(([k, v]) => { if (v) q.set(k, v); });
+    return q.toString();
+  }
+
+  function repFiltersText() {
+    const r = st.rep, out = [`Período: ${dateBR(r.from)} a ${dateBR(r.to)}`, KIND[r.kind]];
+    if (r.method) out.push(`Forma: ${st.opts.methods[r.method]}`);
+    if (r.category) out.push(`Categoria: ${r.category}`);
+    if (r.service_id) out.push(`Terapia: ${st.services.find((s) => s.id == r.service_id)?.name || ""}`);
+    if (r.patient_id) out.push(`Cliente: ${st.patients.find((p) => p.id == r.patient_id)?.name || ""}`);
+    if (r.origin) out.push(`Origem: ${r.origin}`);
+    if (r.social) out.push("Só Ambulatório Social");
+    return out.join(" · ");
+  }
+
+  async function renderReport() {
+    if (!st.patients.length) st.patients = await A().patients();
+    const r = st.rep;
+    const data = await A().api(`/api/admin/finance/report?${repQuery()}`);
+    st.repData = data;
+    const sel = (name, options, empty = "Todas") => `<select name="${name}"><option value="">${empty}</option>${options
+      .map(([v, l]) => `<option value="${esc(v)}" ${String(r[name]) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+    const rows = data.items.map((x) => `<tr>
+      <td>${dateBR(x.date)}</td>
+      <td><span class="adm-badge ${x.type === "income" ? "adm-badge--done" : "adm-badge--cancelled"}">${x.type === "income" ? "Entrada" : "Despesa"}</span></td>
+      <td>${esc(x.type === "income" ? x.patient || "—" : x.category)}</td>
+      <td>${x.social ? "🤝 " : ""}${esc(x.service || (x.type === "income" ? x.origin : ""))}${x.description ? `<small>${esc(x.description)}</small>` : ""}</td>
+      <td>${esc(x.type === "income" ? x.origin : "—")}</td>
+      <td>${esc(st.opts.methods[x.method] || "—")}</td>
+      <td class="num ${x.type === "income" ? "fin-in" : "fin-out"}">${x.type === "expense" ? "−" : ""}${brl(x.amount_cents)}</td></tr>`).join("");
+    return `
+      <section class="adm-card">
+        <div class="adm-card__head"><h2>📄 Relatório financeiro</h2></div>
+        <form class="fin-filters" id="fin-rep-form">
+          <label>De<input type="date" name="from" value="${r.from}" required></label>
+          <label>Até<input type="date" name="to" value="${r.to}" required></label>
+          <label>Tipo${sel("kind", Object.entries(KIND).slice(1), "Entradas e despesas")}</label>
+          <label>Forma de pagamento${sel("method", Object.entries(st.opts.methods))}</label>
+          <label>Categoria (despesa)${sel("category", st.opts.expense_categories.map((c) => [c, c]))}</label>
+          <label>Terapia (entrada)${sel("service_id", st.services.map((s) => [s.id, s.name]))}</label>
+          <label>Cliente${sel("patient_id", st.patients.map((p) => [p.id, p.name]), "Todos")}</label>
+          <label>Origem da entrada${sel("origin", [["Sessão", "Sessão"], ["Pacote", "Pacote"], ["Avulso", "Avulso"]])}</label>
+          <label class="ag-check fin-filters__check"><input type="checkbox" name="social" value="1" ${r.social ? "checked" : ""}> 🤝 Só Ambulatório Social</label>
+          <div class="fin-filters__quick">
+            <span class="adm-muted">Atalhos:</span>
+            <button class="adm-btn adm-btn--sm" data-rep-range="month" type="button">Este mês</button>
+            <button class="adm-btn adm-btn--sm" data-rep-range="last" type="button">Mês passado</button>
+            <button class="adm-btn adm-btn--sm" data-rep-range="year" type="button">Este ano</button>
+            <button class="adm-btn adm-btn--sm" data-rep-range="clear" type="button">Limpar filtros</button>
+          </div>
+          <div class="fin-filters__actions">
+            <button class="adm-btn adm-btn--primary" type="submit">🔎 Aplicar filtros</button>
+            <button class="adm-btn" data-rep-export="csv" type="button">⬇️ Baixar planilha (Excel)</button>
+            <button class="adm-btn" data-rep-export="pdf" type="button">🖨️ Imprimir / PDF</button>
+          </div>
+        </form>
+      </section>
+      <div class="adm-stats fin-stats">
+        <article class="adm-stat"><span>Entradas</span><strong class="fin-in">${brl(data.income_cents)}</strong></article>
+        <article class="adm-stat"><span>Despesas</span><strong class="fin-out">${brl(data.expense_cents)}</strong></article>
+        <article class="adm-stat"><span>Saldo do período</span><strong class="${data.balance_cents < 0 ? "fin-out" : "fin-in"}">${brl(data.balance_cents)}</strong></article>
+        <article class="adm-stat"><span>Lançamentos</span><strong>${data.items.length}</strong></article>
+      </div>
+      <section class="adm-card">
+        <p class="adm-muted fin-help">${esc(repFiltersText())}</p>
+        <div class="fin-table-wrap"><table class="fin-table fin-table--rep">
+          <thead><tr><th>Data</th><th>Tipo</th><th>Cliente / categoria</th><th>Terapia / descrição</th><th>Origem</th><th>Forma</th><th class="num">Valor</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" class="adm-muted">Nada encontrado com esses filtros.</td></tr>'}</tbody>
+        </table></div>
+      </section>`;
+  }
+
+  function exportReport(kind) {
+    const d = st.repData;
+    if (!d) return;
+    const lines = d.items.map((x) => [
+      dateBR(x.date), x.type === "income" ? "Entrada" : "Despesa",
+      x.type === "income" ? x.patient || "" : x.category, x.service || "", x.type === "income" ? x.origin : "",
+      st.opts.methods[x.method] || "", x.social ? "Sim" : "", x.description || "",
+      ((x.type === "expense" ? -1 : 1) * x.amount_cents / 100).toFixed(2).replace(".", ","),
+    ]);
+    if (kind === "csv") {
+      window.AjnaPrint.csv(`ajna-financeiro_${st.rep.from}_a_${st.rep.to}.csv`, [
+        ["Relatório financeiro — Ajna Terapias"], [repFiltersText()], [],
+        ["Data", "Tipo", "Cliente / categoria", "Terapia", "Origem", "Forma de pagamento", "Ambulatório Social", "Descrição", "Valor (R$)"],
+        ...lines, [],
+        ["", "", "", "", "", "", "", "Total de entradas", (d.income_cents / 100).toFixed(2).replace(".", ",")],
+        ["", "", "", "", "", "", "", "Total de despesas", (-d.expense_cents / 100).toFixed(2).replace(".", ",")],
+        ["", "", "", "", "", "", "", "Saldo", (d.balance_cents / 100).toFixed(2).replace(".", ",")],
+      ]);
+      return;
+    }
+    // agrupamentos para o PDF
+    const group = (pick, type) => {
+      const m = {};
+      d.items.filter((x) => x.type === type).forEach((x) => { const k = pick(x) || "—"; m[k] = (m[k] || 0) + x.amount_cents; });
+      return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${brl(v)}</td></tr>`).join("");
+    };
+    const E = window.AjnaPrint.esc;
+    window.AjnaPrint.open({
+      title: "Relatório financeiro",
+      subtitle: `${dateBR(st.rep.from)} a ${dateBR(st.rep.to)}`,
+      html: `<p class="filters">${E(repFiltersText())}</p>
+        <div class="totals"><div><span>Entradas</span><b class="in">${brl(d.income_cents)}</b></div>
+          <div><span>Despesas</span><b class="out">${brl(d.expense_cents)}</b></div>
+          <div><span>Saldo</span><b class="${d.balance_cents < 0 ? "out" : "in"}">${brl(d.balance_cents)}</b></div>
+          <div><span>Lançamentos</span><b>${d.items.length}</b></div></div>
+        ${d.income_cents ? `<h2>Entradas por terapia</h2><table>${group((x) => x.service || "Avulso / sem terapia", "income")}</table>
+          <h2>Entradas por forma de pagamento</h2><table>${group((x) => st.opts.methods[x.method], "income")}</table>` : ""}
+        ${d.expense_cents ? `<h2>Despesas por categoria</h2><table>${group((x) => x.category, "expense")}</table>` : ""}
+        <h2>Lançamentos</h2>
+        <table><thead><tr><th>Data</th><th>Tipo</th><th>Cliente / categoria</th><th>Terapia</th><th>Origem</th><th>Forma</th><th class="num">Valor</th></tr></thead>
+        <tbody>${d.items.map((x) => `<tr><td>${dateBR(x.date)}</td><td>${x.type === "income" ? "Entrada" : "Despesa"}</td>
+          <td>${E(x.type === "income" ? x.patient || "—" : x.category)}${x.description ? `<br><span class="muted">${E(x.description)}</span>` : ""}</td>
+          <td>${x.social ? "🤝 " : ""}${E(x.service || "")}</td><td>${E(x.type === "income" ? x.origin : "")}</td>
+          <td>${E(st.opts.methods[x.method] || "—")}</td>
+          <td class="num ${x.type === "income" ? "in" : "out"}">${x.type === "expense" ? "−" : ""}${brl(x.amount_cents)}</td></tr>`).join("")
+          || '<tr><td colspan="7" class="muted">Nada encontrado.</td></tr>'}</tbody></table>`,
+    });
+  }
+
+  document.addEventListener("submit", (e) => {
+    if (e.target.id !== "fin-rep-form") return;
+    e.preventDefault();
+    const f = new FormData(e.target);
+    Object.keys(st.rep).forEach((k) => { st.rep[k] = f.get(k) || ""; });
+    if (!st.rep.kind) st.rep.kind = "all";
+    if (st.rep.from > st.rep.to) return A().toast("A data inicial precisa ser antes da final.", true);
+    load();
+  });
+  document.addEventListener("click", (e) => {
+    const q = e.target.closest("[data-rep-range]");
+    if (q) {
+      const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+      const r = q.dataset.repRange;
+      if (r === "clear") st.rep = { ...st.rep, kind: "all", method: "", category: "", service_id: "", patient_id: "", origin: "", social: "" };
+      else {
+        const [a, b] = r === "month" ? [new Date(y, m, 1), new Date(y, m + 1, 0)]
+          : r === "last" ? [new Date(y, m - 1, 1), new Date(y, m, 0)] : [new Date(y, 0, 1), new Date(y, 11, 31)];
+        st.rep.from = iso(a);
+        st.rep.to = iso(b);
+      }
+      return void load();
+    }
+    const x = e.target.closest("[data-rep-export]");
+    if (x) exportReport(x.dataset.repExport);
+    const c = e.target.closest("[data-fin-chart]");
+    if (c) {
+      st.chart = c.dataset.finChart;
+      localStorage.setItem("ajna-fin-chart", st.chart);
+      $$("[data-fin-chart]").forEach((b) => b.classList.toggle("is-active", b === c));
+      $("#fin-chart-box").innerHTML = chartHtml(st.summary);
+      $("#fin-chart-title").textContent = CHARTS[st.chart];
+    }
+  });
 
   // ---------------------------------------------------------------- sessões do mês + a receber
   async function renderSessions() {

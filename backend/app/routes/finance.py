@@ -416,7 +416,90 @@ def summary():
         """SELECT COALESCE(SUM(p.amount_cents), 0) AS v FROM payments p
            JOIN appointments a ON a.id = p.appointment_id JOIN services s ON s.id = a.service_id
            WHERE s.social = 1 AND p.date BETWEEN ? AND ?""", (start, end)).fetchone()["v"]
-    return jsonify(social={"sessions": social["n"], "patients": social["people"], "income_cents": social_income},
+    # receita por terapia (sessão ou pacote) e particular x Ambulatório Social
+    by_service, social_split = {}, {"social": 0, "private": 0}
+    for r in db.execute(PAYMENT_REPORT_SQL + " WHERE p.date BETWEEN ? AND ?", (start, end)).fetchall():
+        name = r["service_name"] or "Avulso / sem terapia"
+        by_service[name] = by_service.get(name, 0) + r["amount_cents"]
+        social_split["social" if r["social"] else "private"] += r["amount_cents"]
+    return jsonify(by_service=by_service, social_split=social_split, social={"sessions": social["n"], "patients": social["people"], "income_cents": social_income},
                    year=year, months=months, income_cents=income, expense_cents=expense, balance_cents=income - expense,
                    receivable_cents=sum(r["due_cents"] for r in pending), receivable_count=len(pending),
                    by_category=by_category, by_method=by_method)
+
+
+# ------------------------------------------------------------------ relatório com filtros (tela + Excel/PDF)
+PAYMENT_REPORT_SQL = """
+    SELECT p.id, p.date, p.amount_cents, p.method, p.description, p.appointment_id, p.package_id,
+           p.patient_user_id, u.name AS patient_name,
+           COALESCE(sa.id, sk.id) AS service_id, COALESCE(sa.name, sk.name) AS service_name,
+           COALESCE(sa.social, sk.social, 0) AS social
+    FROM payments p
+    LEFT JOIN users u ON u.id = p.patient_user_id
+    LEFT JOIN appointments a ON a.id = p.appointment_id
+    LEFT JOIN services sa ON sa.id = a.service_id
+    LEFT JOIN packages k ON k.id = p.package_id
+    LEFT JOIN services sk ON sk.id = k.service_id
+"""
+
+
+def _origin(r):
+    if r["appointment_id"]:
+        return "Sessão"
+    if r["package_id"]:
+        return "Pacote"
+    return "Avulso"
+
+
+@finance_bp.get("/finance/report")
+@_admin
+def report():
+    """Entradas e/ou despesas de um período, com filtros. Usado pela tela de relatórios e para exportar."""
+    start, end = _period()
+    if not start:
+        return jsonify(error="Escolha o período (data inicial e final)."), 400
+    args = request.args
+    kind = args.get("kind", "all")  # all | income | expense
+    method = args.get("method") or None
+    category = args.get("category") or None
+    service_id = args.get("service_id") or None
+    patient_id = args.get("patient_id") or None
+    origin = args.get("origin") or None  # Sessão | Pacote | Avulso
+    social = args.get("social") == "1"
+    db = get_db()
+    rows = []
+    # filtros que só existem em um dos lados excluem o outro
+    want_income = kind in ("all", "income") and not category
+    want_expense = kind in ("all", "expense") and not (service_id or patient_id or origin or social)
+    if want_income:
+        sql, params = PAYMENT_REPORT_SQL + " WHERE p.date BETWEEN ? AND ?", [start, end]
+        if method:
+            sql += " AND p.method = ?"; params.append(method)
+        if patient_id:
+            sql += " AND p.patient_user_id = ?"; params.append(patient_id)
+        for r in db.execute(sql + " ORDER BY p.date, p.id", params).fetchall():
+            if service_id and str(r["service_id"] or "") != str(service_id):
+                continue
+            if social and not r["social"]:
+                continue
+            if origin and _origin(r) != origin:
+                continue
+            rows.append({"type": "income", "date": r["date"], "amount_cents": r["amount_cents"],
+                         "method": r["method"], "patient": r["patient_name"], "service": r["service_name"],
+                         "origin": _origin(r), "category": None, "social": bool(r["social"]),
+                         "description": r["description"]})
+    if want_expense:
+        sql, params = "SELECT * FROM expenses WHERE date BETWEEN ? AND ?", [start, end]
+        if method:
+            sql += " AND method = ?"; params.append(method)
+        if category:
+            sql += " AND category = ?"; params.append(category)
+        for r in db.execute(sql + " ORDER BY date, id", params).fetchall():
+            rows.append({"type": "expense", "date": r["date"], "amount_cents": r["amount_cents"],
+                         "method": r["method"], "patient": None, "service": None, "origin": None,
+                         "category": r["category"], "social": False, "description": r["description"]})
+    rows.sort(key=lambda r: (r["date"], r["type"]))
+    income = sum(r["amount_cents"] for r in rows if r["type"] == "income")
+    expense = sum(r["amount_cents"] for r in rows if r["type"] == "expense")
+    return jsonify(items=rows, income_cents=income, expense_cents=expense, balance_cents=income - expense,
+                   **{"from": start, "to": end})

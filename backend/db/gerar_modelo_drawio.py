@@ -19,7 +19,7 @@ TABLES = [
         ("id", "INTEGER", "PK"), ("name", "TEXT", ""), ("email", "TEXT", "UK"), ("phone", "TEXT", ""),
         ("password_hash", "TEXT", ""), ("role", "TEXT  admin | patient", ""), ("active", "INTEGER 0/1", ""),
         ("avatar", "TEXT (foto opcional, data:image)", ""), ("social", "INTEGER 0/1 (Ambulatório Social)", ""),
-        ("created_at", "TEXT", ""),
+        ("profile", "TEXT (JSON: CPF, endereço, emergência…)", ""), ("created_at", "TEXT", ""),
     ], "Administradores e clientes (pacientes)"),
     ("appointments", "#d5e8d4", 420, 40, [
         ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users"), ("date", "TEXT AAAA-MM-DD", ""),

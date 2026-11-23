@@ -237,7 +237,41 @@
     f.elements.name.value = p.name;
     f.elements.email.value = p.email;
     f.elements.phone.value = p.phone || "";
+    state.profileFields = p.profile_fields;
+    const v = (k) => esc(p.profile?.[k] || "");
+    $("#personal-fields").innerHTML = p.profile_fields.map((sec) => `
+      <fieldset class="cli-fieldset"><legend>${sec.icon} ${esc(sec.title)}</legend>
+        <div class="cli-fields">${sec.fields.map((fl) => `<label>${esc(fl.label)}${
+          fl.type === "select" ? `<select name="${fl.key}"><option value="">—</option>${fl.options.map((o) =>
+            `<option ${o === p.profile?.[fl.key] ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`
+          : `<input name="${fl.key}" type="${fl.type === "date" ? "date" : "text"}" value="${v(fl.key)}"
+              ${fl.placeholder ? `placeholder="${esc(fl.placeholder)}"` : ""} ${["cpf", "cep"].includes(fl.type) ? 'inputmode="numeric"' : ""}
+              ${fl.type === "cpf" ? 'data-mask="cpf"' : fl.type === "cep" ? 'data-mask="cep"' : ""}>`}</label>`).join("")}</div>
+      </fieldset>`).join("");
   }
+
+  // máscaras simples para CPF e CEP
+  document.addEventListener("input", (e) => {
+    const m = e.target.dataset?.mask;
+    if (!m) return;
+    const d = e.target.value.replace(/\D/g, "").slice(0, m === "cpf" ? 11 : 8);
+    e.target.value = m === "cpf"
+      ? d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2")
+      : d.replace(/(\d{5})(\d)/, "$1-$2");
+  });
+
+  $("#personal-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const f = event.currentTarget;
+    const err = $(".adm-form__error", f);
+    err.textContent = "";
+    const profile = {};
+    state.profileFields.flatMap((s) => s.fields).forEach((fl) => { profile[fl.key] = f.elements[fl.key].value; });
+    try {
+      await api("/api/patient/me", { method: "PATCH", body: { profile } });
+      toast("Dados pessoais salvos.");
+    } catch (e2) { err.textContent = e2.message; }
+  });
 
   $("#profile-form").addEventListener("submit", async (event) => {
     event.preventDefault();

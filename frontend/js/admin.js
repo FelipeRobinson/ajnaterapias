@@ -767,12 +767,14 @@
       </div>
       <button class="adm-btn pf-social-btn ${p.social ? "is-on" : ""}" data-social-toggle="${p.id}" data-on="${p.social ? 1 : 0}" type="button"
         title="Projeto Ambulatório Social de Acupuntura (R$ 50,00 · 60 min)">🤝 ${p.social ? "No Ambulatório Social" : "Incluir no Ambulatório Social"}</button>
+      <button class="adm-btn pf-print-btn" data-print-menu type="button">🖨️ Relatórios</button>
       <button class="adm-btn adm-btn--primary pf-3d-btn" data-patient-3d type="button">🧍 Pontos no corpo 3D</button>
       <div class="pf-head__stats">
         <div><b>${done.length}</b><span>sessões realizadas</span></div>
         <div><b>${done[0] ? dateBR(done[0].date) : "—"}</b><span>última sessão</span></div>
         <div><b>${next ? dateBR(next.date) : "—"}</b><span>próxima</span></div>
       </div>`;
+    renderPersonal(forms, p.profile || {});
     renderRecord(forms, file.record);
     renderProtocols(file.sessions);
     switchTab(state.pfTab || "record");
@@ -783,8 +785,42 @@
     $$("[data-pf-tab]").forEach((b) => b.classList.toggle("is-active", b.dataset.pfTab === tab));
     $("#pf-record").hidden = tab !== "record";
     $("#pf-protocols").hidden = tab !== "protocols";
+    $("#pf-personal").hidden = tab !== "personal";
   }
   $$("[data-pf-tab]").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.pfTab)));
+
+  // Dados pessoais (endereço, documentos, contato de emergência) — o cliente também edita em "Meus dados"
+  function renderPersonal(forms, profile, editing = false) {
+    const box = $("#pf-personal");
+    const filled = Object.keys(profile).length;
+    if (editing) {
+      box.innerHTML = `<form class="adm-form pf-form" id="personal-form" novalidate>
+          ${formHtml(forms.profile, profile)}
+          <p class="adm-form__error" role="alert"></p>
+          <div class="adm-form__actions pf-sticky-actions">
+            <button class="adm-btn adm-btn--ghost" data-personal-cancel type="button">Cancelar</button>
+            <button class="adm-btn adm-btn--primary" type="submit">Salvar dados pessoais</button>
+          </div></form>`;
+      const f = $("#personal-form");
+      f.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await api(`/api/admin/patients/${state.patientId}/profile`, { method: "PUT", body: { profile: readFields(f, forms.profile) } });
+          toast("Dados pessoais salvos.");
+          state.pfTab = "personal";
+          loadPatientFile();
+        } catch (err) { $(".adm-form__error", f).textContent = err.message; }
+      });
+      $("[data-personal-cancel]", f).addEventListener("click", () => renderPersonal(forms, profile));
+      return;
+    }
+    box.innerHTML = `<div class="pf-toolbar">
+        <span class="adm-muted">${filled ? "Preenchido pelo cliente ou pela clínica." : "O cliente ainda não preencheu os dados pessoais."}</span>
+        <button class="adm-btn adm-btn--primary" data-personal-edit type="button">✎ ${filled ? "Editar" : "Preencher"} dados pessoais</button>
+      </div>
+      <div class="pf-view">${viewHtml(forms.profile, profile)}</div>`;
+    $("[data-personal-edit]", box).addEventListener("click", () => renderPersonal(forms, profile, true));
+  }
 
   function renderRecord(forms, record, editing = false) {
     const box = $("#pf-record");
@@ -855,12 +891,191 @@
               ${p.complaint_today ? `<p class="adm-muted pf-snippet">${esc(p.complaint_today)}</p>` : ""}`
               : '<p class="adm-muted">Protocolo ainda não preenchido.</p>'}
           </div>
-          <button class="adm-btn adm-btn--sm ${p ? "" : "adm-btn--primary"}" data-protocol="${s.id}" data-patient="${state.patientId}" type="button">
-            ${p ? "Ver / editar" : "Preencher"}</button>
+          <div class="pf-session__act">
+            <button class="adm-btn adm-btn--sm ${p ? "" : "adm-btn--primary"}" data-protocol="${s.id}" data-patient="${state.patientId}" type="button">
+              ${p ? "Ver / editar" : "Preencher"}</button>
+            ${p ? `<button class="adm-btn adm-btn--sm" data-print-patient="session" data-session="${s.id}" type="button" title="Imprimir / PDF desta consulta">🖨️ Imprimir</button>` : ""}
+          </div>
         </article>`;
     }).join("")}</div>`
       : '<p class="adm-empty">Nenhuma consulta confirmada ou realizada ainda. Os protocolos aparecem aqui a cada sessão.</p>';
   }
+
+
+  // ---------------------------------------------------------------- relatórios do paciente (imprimir / PDF)
+  function printValue(f, v) {
+    const E = window.AjnaPrint.esc;
+    if (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length)) return '<span class="muted">—</span>';
+    if (f.type === "points") return v.map((c) => {
+      const p = mp.byCode[c];
+      return `<span class="tag">${E(c.replace("OR-", "Orelha "))}${p?.pinyin ? ` · ${E(p.pinyin)}` : ""}${p?.name_pt ? ` (${E(p.name_pt)})` : ""}</span>`;
+    }).join(" ");
+    if (f.type === "multi") return v.map((x) => `<span class="tag">${E(x)}</span>`).join(" ");
+    if (f.type === "check") return v ? "Sim" : "Não";
+    if (f.type === "date") return E(dateBR(v));
+    if (f.type === "scale") return `${E(v)} / 10`;
+    return E(v);
+  }
+
+  const printSections = (sections, data) => sections.map((sec) => {
+    const rows = sec.fields.map((f) => `<dt>${window.AjnaPrint.esc(f.label)}</dt><dd>${printValue(f, data[f.key])}</dd>`).join("");
+    return `<h3>${sec.icon} ${window.AjnaPrint.esc(sec.title)}</h3><dl class="kv">${rows}</dl>`;
+  }).join("");
+
+
+  // Relatório de acompanhamento: evolução do paciente ao longo das sessões
+  function followupHtml(file) {
+    const E = window.AjnaPrint.esc;
+    const all = [...file.sessions].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+    const done = all.filter((s) => s.status === "done");
+    const cancelled = all.filter((s) => s.status === "cancelled").length;
+    const upcoming = all.filter((s) => ["scheduled", "requested"].includes(s.status) && s.date >= iso(new Date()));
+    const num = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
+    if (!done.length) {
+      return `<div class="sheet"><h2>📈 Relatório de acompanhamento</h2><p class="muted">O paciente ainda não tem sessões realizadas.</p></div>`;
+    }
+    const first = done[0].date, last = done.at(-1).date;
+    const days = Math.max(30.4, (fromIso(last) - fromIso(first)) / 86400000); // menos de 1 mês conta como 1 mês
+    const perMonth = done.length > 1 ? (done.length / (days / 30.4)).toFixed(1).replace(".", ",") : "—";
+    const baseline = num(file.record?.data?.pain_scale);
+
+    // intensidade da queixa por sessão
+    const pains = done.map((s) => ({ s, before: num(s.protocol?.pain_before), after: num(s.protocol?.pain_after) }))
+      .filter((x) => x.before !== null || x.after !== null);
+    const firstBefore = pains.find((x) => x.before !== null)?.before ?? baseline;
+    const lastValue = [...pains].reverse().map((x) => x.after ?? x.before).find((v) => v !== null && v !== undefined);
+    const drops = pains.filter((x) => x.before !== null && x.after !== null).map((x) => x.before - x.after);
+    const avgDrop = drops.length ? (drops.reduce((a, b) => a + b, 0) / drops.length).toFixed(1).replace(".", ",") : null;
+    let evolution = "Sem registros de intensidade nos protocolos.";
+    if (firstBefore !== null && firstBefore !== undefined && lastValue !== undefined) {
+      const diff = firstBefore - lastValue;
+      const pct = firstBefore ? Math.round((diff / firstBefore) * 100) : 0;
+      evolution = diff > 0 ? `Melhora de <b>${diff} ponto(s)</b> (${pct}%): de ${firstBefore}/10 para ${lastValue}/10.`
+        : diff < 0 ? `Piora de <b>${-diff} ponto(s)</b>: de ${firstBefore}/10 para ${lastValue}/10.`
+        : `Intensidade estável em ${lastValue}/10.`;
+    }
+
+    // gráfico da intensidade (antes x depois) por sessão
+    let chart = "";
+    if (pains.length) {
+      const W = 640, H = 200, P = { l: 30, r: 12, t: 12, b: 28 };
+      const n = pains.length;
+      const x = (i) => P.l + (n === 1 ? (W - P.l - P.r) / 2 : ((W - P.l - P.r) / (n - 1)) * i);
+      const y = (v) => P.t + (H - P.t - P.b) * (1 - v / 10);
+      const line = (key, color) => {
+        const pts = pains.map((p, i) => (p[key] === null ? null : `${x(i)},${y(p[key])}`)).filter(Boolean);
+        return `<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="2.5"/>` +
+          pains.map((p, i) => (p[key] === null ? "" : `<circle cx="${x(i)}" cy="${y(p[key])}" r="4" fill="${color}"/>`)).join("");
+      };
+      const grid = [0, 2, 4, 6, 8, 10].map((v) => `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="#eee5f2"/>
+        <text x="${P.l - 6}" y="${y(v) + 4}" font-size="10" fill="#6c5b73" text-anchor="end">${v}</text>`).join("");
+      const labels = pains.map((p, i) => `<text x="${x(i)}" y="${H - 8}" font-size="10" fill="#6c5b73" text-anchor="middle">${E(dateBR(p.s.date).slice(0, 5))}</text>`).join("");
+      chart = `<h3>Intensidade da queixa por sessão (0 a 10)</h3>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:220px">${grid}${line("before", "#d9566f")}${line("after", "#2f9e5b")}${labels}</svg>
+        <p class="muted"><span style="color:#d9566f">●</span> antes da sessão &nbsp; <span style="color:#2f9e5b">●</span> depois da sessão</p>`;
+    }
+
+    // técnicas e pontos mais usados
+    const count = (arrs) => {
+      const m = {};
+      arrs.flat().forEach((k) => { m[k] = (m[k] || 0) + 1; });
+      return Object.entries(m).sort((a, b) => b[1] - a[1]);
+    };
+    const techniques = count(done.map((s) => s.protocol?.techniques || []));
+    const points = count(done.map((s) => s.protocol?.acupoints || [])).slice(0, 15);
+    const pointName = (c) => {
+      const p = mp.byCode[c];
+      return `${E(c.replace("OR-", "Orelha "))}${p?.pinyin ? ` · ${E(p.pinyin)}` : ""}`;
+    };
+
+    const table = done.map((s, i) => {
+      const pr = s.protocol || {};
+      return `<tr><td>${i + 1}</td><td>${E(dateBR(s.date))}</td>
+        <td>${E((pr.techniques || []).join(", ") || "—")}</td>
+        <td>${(pr.acupoints || []).length || "—"}</td>
+        <td class="num">${num(pr.pain_before) ?? "—"} → ${num(pr.pain_after) ?? "—"}</td>
+        <td>${E(pr.complaint_today || "") || '<span class="muted">—</span>'}</td></tr>`;
+    }).join("");
+
+    // começa numa folha nova (a anamnese fica na 1ª folha, o acompanhamento na 2ª)
+    return `<div class="sheet"><h2>📈 Relatório de acompanhamento</h2>
+      <div class="totals">
+        <div><span>Sessões realizadas</span><b>${done.length}</b></div>
+        <div><span>Período</span><b style="font-size:13px">${E(dateBR(first))} a ${E(dateBR(last))}</b></div>
+        <div><span>Frequência média</span><b>${perMonth}</b> <span>sessão(ões) por mês</span></div>
+        <div><span>Faltas / cancelamentos</span><b>${cancelled}</b></div>
+      </div>
+      <h3>Evolução</h3>
+      <dl class="kv">
+        ${baseline !== null && baseline !== undefined ? `<dt>Intensidade na anamnese</dt><dd>${baseline}/10</dd>` : ""}
+        <dt>Evolução da queixa</dt><dd>${evolution}</dd>
+        ${avgDrop !== null ? `<dt>Alívio médio por sessão</dt><dd>${avgDrop} ponto(s) (antes → depois)</dd>` : ""}
+        <dt>Protocolos preenchidos</dt><dd>${done.filter((s) => s.protocol).length} de ${done.length} sessões</dd>
+        <dt>Próximas consultas</dt><dd>${upcoming.length ? upcoming.map((s) => `${E(dateBR(s.date))} ${E(s.start)}`).join(", ") : "Nenhuma marcada"}</dd>
+      </dl>
+      ${chart}
+      ${techniques.length ? `<h3>Técnicas utilizadas</h3><p>${techniques.map(([t, n]) => `<span class="tag">${E(t)} · ${n}×</span>`).join(" ")}</p>` : ""}
+      ${points.length ? `<h3>Pontos mais utilizados</h3><p>${points.map(([c, n]) => `<span class="tag">${pointName(c)} · ${n}×</span>`).join(" ")}</p>` : ""}
+      <h3>Histórico das sessões</h3>
+      <table><thead><tr><th>#</th><th>Data</th><th>Técnicas</th><th>Pontos</th><th class="num">Intensidade</th><th>Relato do paciente</th></tr></thead>
+        <tbody>${table}</tbody></table></div>`;
+  }
+
+  async function printPatient(mode, sessionId) {
+    const [forms, file] = await Promise.all([getForms(), api(`/api/admin/patients/${state.patientId}/file`), loadPoints()]);
+    const E = window.AjnaPrint.esc;
+    const p = file.patient;
+    const head = `<h2>Paciente</h2><dl class="kv">
+      <dt>Nome</dt><dd>${E(p.name)}${p.social ? " · 🤝 Ambulatório Social" : ""}</dd>
+      <dt>E-mail</dt><dd>${E(p.email)}</dd>${p.phone ? `<dt>Telefone</dt><dd>${E(p.phone)}</dd>` : ""}
+      <dt>Cliente desde</dt><dd>${E(dateBR(p.created_at))}</dd>
+      <dt>Sessões realizadas</dt><dd>${file.sessions.filter((s) => s.status === "done").length}</dd></dl>
+      ${Object.keys(p.profile || {}).length ? `<h2>🪪 Dados pessoais</h2>${printSections(forms.profile, p.profile)}` : ""}`;
+    const anamnese = `<h2>📋 Ficha de anamnese</h2>${file.record?.data
+      ? printSections(forms.record, file.record.data) + (file.record.updated_at ? `<p class="muted">Última atualização: ${E(dateBR(file.record.updated_at))}</p>` : "")
+      : '<p class="muted">Ficha de anamnese ainda não preenchida.</p>'}`;
+    const sessionHtml = (s) => `<div class="session"><h3>${E(cap(fmt(fromIso(s.date), { weekday: "long", day: "numeric", month: "long", year: "numeric" })))} · ${E(s.start)}–${E(s.end)}
+      <span class="muted">(${E(STATUS[s.status] || s.status)})</span></h3>
+      ${s.protocol ? printSections(forms.protocol, s.protocol) : '<p class="muted">Protocolo não preenchido.</p>'}</div>`;
+    const sessions = file.sessions.filter((s) => ["scheduled", "done"].includes(s.status));
+    let title, html;
+    if (mode === "record") {
+      title = "Ficha de anamnese e acompanhamento";
+      html = head + anamnese + followupHtml(file);
+    } else if (mode === "followup") {
+      title = "Relatório de acompanhamento";
+      html = head + followupHtml(file);
+    } else if (mode === "session") {
+      const s = file.sessions.find((x) => x.id === Number(sessionId));
+      if (!s) return toast("Consulta não encontrada.", true);
+      title = "Ficha da consulta";
+      html = head + `<h2>📝 Consulta</h2>` + sessionHtml(s);
+    } else {
+      title = "Prontuário completo";
+      const withProtocol = sessions.filter((s) => s.protocol);
+      html = head + anamnese + followupHtml(file) + `<h2>📝 Consultas (${withProtocol.length} com protocolo)</h2>` +
+        (withProtocol.map(sessionHtml).join("") || '<p class="muted">Nenhuma consulta com protocolo ainda.</p>');
+    }
+    window.AjnaPrint.open({ title, subtitle: p.name, html, confidential: true });
+  }
+
+  function openPrintMenu() {
+    const file = state.file;
+    const list = file.sessions.filter((s) => ["scheduled", "done"].includes(s.status) && s.protocol);
+    $("#print-menu-sessions").innerHTML = list.length
+      ? list.map((s) => `<button class="adm-btn adm-btn--sm" data-print-patient="session" data-session="${s.id}" type="button">
+          📝 ${esc(dateBR(s.date))} · ${esc(s.start)}</button>`).join("")
+      : '<p class="adm-muted">Nenhuma consulta com protocolo preenchido ainda.</p>';
+    $("#print-menu").showModal();
+  }
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-print-menu]")) return void openPrintMenu();
+    const b = e.target.closest("[data-print-patient]");
+    if (!b) return;
+    $("#print-menu").close();
+    printPatient(b.dataset.printPatient, b.dataset.session).catch((err) => toast(err.message, true));
+  });
 
   // Modal do protocolo (abre pela ficha, pela agenda ou pela visão geral)
   const protocolModal = $("#protocol-modal");
@@ -1864,7 +2079,7 @@
 
   async function openPatient3D() {
     const file = state.file;
-    const gender = file.record?.data?.gender || "";
+    const gender = file.record?.data?.gender || file.patient.profile?.gender || "";
     const model = gender === "Masculino" ? "m" : "f";
     await loadPoints();
     p3d.usage = await api(`/api/admin/acupoints/usage?patient_id=${state.patientId}`);

@@ -1,4 +1,5 @@
 """Rotas da área do cliente: consultas, pedido de horário e dados pessoais."""
+import json
 from datetime import date, datetime, timedelta
 
 from flask import Blueprint, jsonify, request, session
@@ -6,6 +7,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..calendar_rules import closed_weekdays, events_between
 from ..database import get_db
+from ..profile_data import PROFILE_FIELDS, clean_profile, load_profile
 from ..security import csrf_required, login_required, roles_required
 
 patient_bp = Blueprint("patient", __name__)
@@ -184,20 +186,29 @@ def cancel_appointment(appointment_id):
 @_patient
 def profile():
     user = get_db().execute(
-        "SELECT name, email, phone, created_at FROM users WHERE id = ?", (session["user_id"],)
+        "SELECT name, email, phone, created_at, profile FROM users WHERE id = ?", (session["user_id"],)
     ).fetchone()
-    return jsonify(dict(user))
+    data = dict(user)
+    data["profile"] = load_profile(data["profile"])
+    return jsonify(**data, profile_fields=PROFILE_FIELDS)
 
 
 @patient_bp.patch("/me")
 @_patient
 @csrf_required
 def update_profile():
-    """O cliente pode atualizar o próprio telefone. Nome e e-mail só a clínica altera."""
+    """O cliente atualiza o telefone e os dados pessoais. Nome e e-mail só a clínica altera."""
     payload = request.get_json(silent=True) or {}
-    phone = str(payload.get("phone", "")).strip()[:30] or None
     db = get_db()
-    db.execute("UPDATE users SET phone = ? WHERE id = ?", (phone, session["user_id"]))
+    if "phone" in payload:
+        phone = str(payload.get("phone") or "").strip()[:30] or None
+        db.execute("UPDATE users SET phone = ? WHERE id = ?", (phone, session["user_id"]))
+    if "profile" in payload:
+        profile, error = clean_profile(payload["profile"])
+        if error:
+            return jsonify(error=error), 400
+        db.execute("UPDATE users SET profile = ? WHERE id = ?",
+                   (json.dumps(profile, ensure_ascii=False), session["user_id"]))
     db.commit()
     return jsonify(ok=True)
 

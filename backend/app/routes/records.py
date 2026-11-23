@@ -11,6 +11,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request, session
 
+from ..profile_data import PROFILE_FIELDS, clean_profile, load_profile
 from ..database import get_db
 from .acupoints import known_codes
 from ..security import csrf_required, login_required, roles_required
@@ -140,14 +141,30 @@ def _clean(form, payload, codes=frozenset()):
 
 def _patient(db, patient_id):
     return db.execute(
-        "SELECT id, name, email, phone, active, avatar, social, created_at FROM users WHERE id = ? AND role = 'patient'", (patient_id,)
+        "SELECT id, name, email, phone, active, avatar, social, profile, created_at FROM users WHERE id = ? AND role = 'patient'", (patient_id,)
     ).fetchone()
 
 
 @records_bp.get("/forms")
 @_admin
 def forms():
-    return jsonify(record=RECORD_FORM, protocol=PROTOCOL_FORM)
+    return jsonify(record=RECORD_FORM, protocol=PROTOCOL_FORM, profile=PROFILE_FIELDS)
+
+
+@records_bp.put("/patients/<int:patient_id>/profile")
+@_admin
+@csrf_required
+def save_profile(patient_id):
+    """A clínica também pode preencher/corrigir os dados pessoais do cliente."""
+    db = get_db()
+    if not _patient(db, patient_id):
+        return jsonify(error="Paciente não encontrado."), 404
+    profile, error = clean_profile((request.get_json(silent=True) or {}).get("profile"))
+    if error:
+        return jsonify(error=error), 400
+    db.execute("UPDATE users SET profile = ? WHERE id = ?", (json.dumps(profile, ensure_ascii=False), patient_id))
+    db.commit()
+    return jsonify(ok=True)
 
 
 @records_bp.get("/patients/<int:patient_id>/file")
@@ -168,7 +185,7 @@ def patient_file(patient_id):
         (patient_id,),
     ).fetchall()
     return jsonify(
-        patient=dict(patient),
+        patient={**dict(patient), "profile": load_profile(patient["profile"])},
         record=None if not record else {**dict(record), "data": json.loads(record["data"])},
         sessions=[{**dict(s), "protocol": json.loads(s["protocol"]) if s["protocol"] else None} for s in sessions],
     )
