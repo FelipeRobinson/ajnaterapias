@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL CHECK (role IN ('admin', 'patient')),
     active        INTEGER NOT NULL DEFAULT 1,
+    avatar        TEXT,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -33,6 +34,17 @@ CREATE TABLE IF NOT EXISTS appointments (
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date);
+
+-- Horários marcados como indisponíveis pela administração (folga, compromisso, feriado...).
+CREATE TABLE IF NOT EXISTS schedule_blocks (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date       TEXT NOT NULL,
+    start      TEXT NOT NULL,
+    "end"      TEXT NOT NULL,
+    reason     TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_schedule_blocks_date ON schedule_blocks(date);
 
 -- Alterações de login pendentes, confirmadas por link enviado ao e-mail.
 CREATE TABLE IF NOT EXISTS account_changes (
@@ -119,6 +131,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL CHECK (role IN ('admin', 'patient')),
     active        INTEGER NOT NULL DEFAULT 1,
+    avatar        TEXT,
     created_at    TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
 );
 
@@ -132,6 +145,17 @@ CREATE TABLE IF NOT EXISTS appointments (
     created_at      TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
 );
 CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date);
+
+-- Horários marcados como indisponíveis pela administração (folga, compromisso, feriado...).
+CREATE TABLE IF NOT EXISTS schedule_blocks (
+    id         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    date       TEXT NOT NULL,
+    start      TEXT NOT NULL,
+    "end"      TEXT NOT NULL,
+    reason     TEXT,
+    created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+);
+CREATE INDEX IF NOT EXISTS idx_schedule_blocks_date ON schedule_blocks(date);
 
 CREATE TABLE IF NOT EXISTS account_changes (
     id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -273,6 +297,7 @@ def init_db(app):
             db.conn.execute(SCHEMA_POSTGRES)
             db.conn.execute("ALTER TABLE acupoints ADD COLUMN IF NOT EXISTS pos3d TEXT")
             db.conn.execute("ALTER TABLE acupoints ADD COLUMN IF NOT EXISTS details TEXT")
+            db.conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT")
             _seed_acupoints(db)
             _seed_theory(db)
             db.commit()
@@ -290,6 +315,8 @@ def init_db(app):
             conn.execute("ALTER TABLE acupoints ADD COLUMN pos3d TEXT")
         if "details" not in cols:
             conn.execute("ALTER TABLE acupoints ADD COLUMN details TEXT")
+        if "avatar" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}:
+            conn.execute("ALTER TABLE users ADD COLUMN avatar TEXT")  # foto de perfil (opcional)
         _seed_acupoints(conn)
         _seed_theory(conn)
         conn.commit()

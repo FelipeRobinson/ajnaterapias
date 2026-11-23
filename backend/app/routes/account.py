@@ -15,7 +15,7 @@ from html import escape
 from secrets import token_urlsafe
 
 from flask import Blueprint, current_app, jsonify, request, session
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import check_password_hash
 
 from ..database import get_db, primary_admin
 from ..mailer import mask_email, send_email
@@ -73,11 +73,9 @@ def change_request():
         phone = str(payload.get("phone") or "").strip() or None
         if phone != user["phone"]:
             changes["phone"] = phone
-    new_password = str(payload.get("new_password", ""))
-    if new_password:
-        if len(new_password) < MIN_ADMIN_PASSWORD:
-            return jsonify(error=f"A nova senha precisa ter pelo menos {MIN_ADMIN_PASSWORD} caracteres."), 400
-        changes["password_hash"] = generate_password_hash(new_password)  # nunca guardamos a senha em texto
+    # A senha do administrador NUNCA é trocada pelo site: só pelo link de "Esqueci minha senha" enviado ao e-mail.
+    if payload.get("new_password"):
+        return jsonify(error="A senha só pode ser trocada pelo link enviado ao seu e-mail (“Esqueci minha senha”)."), 400
     if not changes:
         return jsonify(error="Nenhuma alteração informada."), 400
 
@@ -116,6 +114,9 @@ def confirm():
         return _page("Link expirado", f"O link vale por {TOKEN_MINUTES} minutos. Peça a alteração novamente pelo painel."), 400
 
     changes = json.loads(row["payload"])
+    changes.pop("password_hash", None)  # pedidos antigos com senha não valem mais
+    if not changes:
+        return _page("Link inválido", "A senha só pode ser trocada pelo link de “Esqueci minha senha”."), 400
     user = db.execute("SELECT id, name, email FROM users WHERE id = ?", (row["user_id"],)).fetchone()
     if "email" in changes and db.execute("SELECT 1 FROM users WHERE email = ? AND id != ?",
                                          (changes["email"], user["id"])).fetchone():

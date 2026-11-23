@@ -8,7 +8,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..database import get_db, primary_admin
 from ..mailer import send_email
-from ..security import login_required, new_csrf_token
+from ..security import csrf_required, login_required, new_csrf_token
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -41,12 +41,33 @@ def login():
 @login_required
 def me():
     user = get_db().execute(
-        "SELECT name, email, role FROM users WHERE id = ? AND active = 1", (session["user_id"],)
+        "SELECT name, email, role, avatar FROM users WHERE id = ? AND active = 1", (session["user_id"],)
     ).fetchone()
     if not user:
         session.clear()
         return jsonify(error="Autenticação necessária."), 401
     return jsonify(**dict(user), csrf_token=session.get("csrf_token"))
+
+
+MAX_AVATAR = 300_000  # a tela reduz a foto para 320px antes de enviar; isto é só um teto
+
+
+@auth_bp.put("/me/avatar")
+@login_required
+@csrf_required
+def set_avatar():
+    """Foto de perfil opcional (admin ou cliente). Enviar image=null remove a foto."""
+    image = (request.get_json(silent=True) or {}).get("image")
+    if image is not None:
+        image = str(image)
+        if not image.startswith(("data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,")):
+            return jsonify(error="Envie uma imagem JPG, PNG ou WEBP."), 400
+        if len(image) > MAX_AVATAR:
+            return jsonify(error="A foto é grande demais."), 400
+    db = get_db()
+    db.execute("UPDATE users SET avatar = ? WHERE id = ?", (image, session["user_id"]))
+    db.commit()
+    return jsonify(ok=True, avatar=image)
 
 
 @auth_bp.post("/logout")

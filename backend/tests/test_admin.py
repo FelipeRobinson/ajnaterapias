@@ -6,6 +6,7 @@ from tests.test_auth import make_app
 
 def admin_client(tmp_path):
     app = make_app(tmp_path)
+    app.config["CLOSED_WEEKDAYS"] = ()  # os testes agendam "hoje", que pode cair numa segunda ou sexta
     c = app.test_client()
     token = c.post("/api/auth/login", json={"email": "adm@x.com", "password": "senha-admin-123"}).get_json()["csrf_token"]
     h = {"X-CSRF-Token": token}

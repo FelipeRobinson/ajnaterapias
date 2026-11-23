@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash
 
+from ..calendar_rules import is_closed
 from ..database import IntegrityError, get_db
 from ..security import csrf_required, login_required, roles_required
 
@@ -69,7 +70,7 @@ def dashboard():
 @_admin
 def patients():
     rows = get_db().execute(
-        """SELECT u.id, u.name, u.email, u.phone, u.active, u.created_at,
+        """SELECT u.id, u.name, u.email, u.phone, u.active, u.avatar, u.created_at,
                   (SELECT COUNT(*) FROM appointments a WHERE a.patient_user_id = u.id) AS appointments
            FROM users u WHERE u.role = 'patient' ORDER BY u.name"""
     ).fetchall()
@@ -198,6 +199,64 @@ def _conflict(db, day, start, end, ignore_id=None):
     ).fetchone()["n"]
 
 
+def _blocked(db, day, start, end, ignore_id=None):
+    """O horário cai num período marcado como indisponível?"""
+    return db.execute(
+        """SELECT reason FROM schedule_blocks WHERE date = ? AND start < ? AND "end" > ? AND id != ?""",
+        (day, end, start, ignore_id or 0),
+    ).fetchone()
+
+
+@crm_bp.get("/blocks")
+@_admin
+def blocks():
+    start, end = request.args.get("from", ""), request.args.get("to", "")
+    if not (_valid_date(start) and _valid_date(end)):
+        return jsonify(error="Período inválido."), 400
+    rows = get_db().execute(
+        'SELECT id, date, start, "end", reason FROM schedule_blocks WHERE date BETWEEN ? AND ? ORDER BY date, start',
+        (start, end)).fetchall()
+    return jsonify(items=[dict(r) for r in rows])
+
+
+@crm_bp.post("/blocks")
+@_admin
+@csrf_required
+def create_block():
+    """Marca um período como indisponível. Aceita vários dias seguidos (date até date_to)."""
+    payload = request.get_json(silent=True) or {}
+    first, last = payload.get("date"), payload.get("date_to") or payload.get("date")
+    if not (_valid_date(first) and _valid_date(last)) or last < first:
+        return jsonify(error="Data inválida."), 400
+    days = (date.fromisoformat(last) - date.fromisoformat(first)).days
+    if days > 366:
+        return jsonify(error="Bloqueie no máximo um ano de cada vez."), 400
+    start, end = str(payload.get("start", "")), str(payload.get("end", ""))
+    if not (TIME_RE.match(start) and TIME_RE.match(end)) or end <= start:
+        return jsonify(error="Horário inválido: o término precisa ser depois do início."), 400
+    reason = str(payload.get("reason") or "").strip()[:120] or None
+    db = get_db()
+    for n in range(days + 1):
+        day = (date.fromisoformat(first) + timedelta(days=n)).isoformat()
+        db.execute('INSERT INTO schedule_blocks (date, start, "end", reason) VALUES (?, ?, ?, ?)', (day, start, end, reason))
+    db.commit()
+    # Avisa se ficou alguma consulta dentro do período (a clínica decide se remarca).
+    clash = db.execute(
+        """SELECT COUNT(*) AS n FROM appointments WHERE date BETWEEN ? AND ? AND status IN ('requested', 'scheduled')
+           AND start < ? AND "end" > ?""", (first, last, end, start)).fetchone()["n"]
+    return jsonify(ok=True, created=days + 1, appointments_inside=clash), 201
+
+
+@crm_bp.delete("/blocks/<int:block_id>")
+@_admin
+@csrf_required
+def delete_block(block_id):
+    db = get_db()
+    db.execute("DELETE FROM schedule_blocks WHERE id = ?", (block_id,))
+    db.commit()
+    return "", 204
+
+
 @crm_bp.get("/appointments")
 @_admin
 def appointments():
@@ -230,6 +289,10 @@ def create_appointment():
         return jsonify(error="Cliente não encontrado ou desativado."), 400
     if _conflict(db, data["date"], data["start"], data["end"]):
         return jsonify(error="Já existe uma consulta nesse horário."), 409
+    if _blocked(db, data["date"], data["start"], data["end"]):
+        return jsonify(error="Esse horário está marcado como indisponível. Libere-o na agenda antes de agendar."), 409
+    if is_closed(date.fromisoformat(data["date"])) and not (request.get_json(silent=True) or {}).get("force"):
+        return jsonify(error="Esse é um dia sem atendimento (só há atendimento de terça a quinta).", closed_day=True), 409
     db.execute(
         'INSERT INTO appointments (patient_user_id, date, start, "end") VALUES (?, ?, ?, ?)',
         (data["patient_user_id"], data["date"], data["start"], data["end"]),
@@ -257,6 +320,12 @@ def update_appointment(appointment_id):
         return jsonify(error="O horário de término precisa ser depois do início."), 400
     if merged["status"] != "cancelled" and _conflict(db, merged["date"], merged["start"], merged["end"], appointment_id):
         return jsonify(error="Já existe uma consulta nesse horário."), 409
+    moved = any(k in data for k in ("date", "start", "end"))
+    if moved and merged["status"] != "cancelled" and _blocked(db, merged["date"], merged["start"], merged["end"]):
+        return jsonify(error="Esse horário está marcado como indisponível. Libere-o na agenda antes de remarcar."), 409
+    force = (request.get_json(silent=True) or {}).get("force")
+    if "date" in data and data["date"] != current["date"] and is_closed(date.fromisoformat(data["date"])) and not force:
+        return jsonify(error="Esse é um dia sem atendimento (só há atendimento de terça a quinta).", closed_day=True), 409
     columns = ", ".join(f'"{k}" = ?' for k in data)
     db.execute(f"UPDATE appointments SET {columns} WHERE id = ?", (*data.values(), appointment_id))
     db.commit()

@@ -12,11 +12,11 @@
 </head>
 
 <body class="adm" data-page="admin">
-    <!-- Menu: lateral no computador, barra inferior no celular -->
+    <!-- Menu: abre pelo ☰ (faixa com o logo no computador, botão no canto no celular) — ver js/shell.js -->
     <nav class="adm-nav" aria-label="Menu do painel">
         <a class="adm-nav__brand" href="../index.html" title="Ver o site">
             <img src="../img/logo (1).png" alt="">
-            <span>Ajna <b>CRM</b></span>
+            <span>Ajna <b>Terapias</b></span>
         </a>
         <button class="adm-nav__item is-active" data-view="overview" type="button">
             <span class="adm-nav__icon" aria-hidden="true">◈</span><span>Visão geral</span>
@@ -29,9 +29,6 @@
         </button>
         <button class="adm-nav__item" data-view="points" type="button">
             <span class="adm-nav__icon" aria-hidden="true">☯</span><span>Mapa de pontos</span>
-        </button>
-        <button class="adm-nav__item" data-view="account" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">⚙</span><span>Minha conta</span>
         </button>
         <div class="adm-nav__soon">
             <span class="adm-nav__label">Em breve</span>
@@ -92,11 +89,17 @@
         <section class="adm-view" id="view-agenda" hidden>
             <div class="adm-toolbar">
                 <div class="adm-week">
-                    <button class="adm-btn adm-btn--icon" id="week-prev" type="button" aria-label="Semana anterior">‹</button>
+                    <button class="adm-btn adm-btn--icon" id="week-prev" type="button" aria-label="Anterior">‹</button>
                     <strong id="week-label">—</strong>
-                    <button class="adm-btn adm-btn--icon" id="week-next" type="button" aria-label="Próxima semana">›</button>
+                    <button class="adm-btn adm-btn--icon" id="week-next" type="button" aria-label="Próximo">›</button>
                     <button class="adm-btn adm-btn--ghost" id="week-today" type="button">Hoje</button>
                 </div>
+                <div class="cli-tabs ag-views" role="tablist" aria-label="Visualização da agenda">
+                    <button class="cli-tab" data-ag-view="list" type="button">☰ Lista</button>
+                    <button class="cli-tab" data-ag-view="week" type="button">▥ Semana</button>
+                    <button class="cli-tab" data-ag-view="month" type="button">▦ Mês</button>
+                </div>
+                <button class="adm-btn ag-block-btn" data-block-on="" type="button">⛔ Marcar indisponível</button>
                 <button class="adm-btn adm-btn--primary" data-action="new-appointment" type="button">＋ Nova consulta</button>
             </div>
             <div id="week-days" class="adm-days"></div>
@@ -201,40 +204,6 @@
                 <aside class="adm-card mp-panel" id="mp-panel"></aside>
             </div>
         </section>
-
-        <!-- ===== MINHA CONTA ===== -->
-        <section class="adm-view" id="view-account" hidden>
-            <div class="adm-grid adm-grid--even">
-                <section class="adm-card">
-                    <div class="adm-card__head"><h2>Dados de acesso</h2></div>
-                    <form class="adm-form adm-form--inline" id="account-form" autocomplete="off">
-                        <label>Nome<input name="name" required></label>
-                        <label>E-mail de login<input name="email" type="email" required></label>
-                        <label>Telefone<input name="phone" type="tel"></label>
-                        <label>Nova senha <span class="adm-muted">(deixe em branco para manter)</span>
-                            <input name="new_password" type="password" minlength="12" autocomplete="new-password"></label>
-                        <label>Repita a nova senha<input name="repeat" type="password" autocomplete="new-password"></label>
-                        <hr class="adm-sep">
-                        <label>Senha atual <span class="adm-muted">(obrigatória para confirmar)</span>
-                            <input name="current_password" type="password" required autocomplete="current-password"></label>
-                        <p class="adm-form__error" role="alert"></p>
-                        <div class="adm-form__actions">
-                            <button class="adm-btn adm-btn--primary" type="submit">Enviar confirmação por e-mail</button>
-                        </div>
-                    </form>
-                </section>
-                <section class="adm-card adm-account-help">
-                    <div class="adm-card__head"><h2>🔐 Como funciona</h2></div>
-                    <ol>
-                        <li>Altere o que quiser e digite sua <b>senha atual</b>.</li>
-                        <li>Enviamos um <b>link de confirmação</b> para o e-mail da <b>administradora principal</b>, que precisa aprovar a mudança.</li>
-                        <li>A alteração só vale depois de clicar no link, que expira em <b>30 minutos</b>.</li>
-                        <li>Depois de confirmado, você entra de novo com os dados novos.</li>
-                    </ol>
-                    <p class="adm-account-status" id="account-status" hidden></p>
-                </section>
-            </div>
-        </section>
     </div>
 
     <!-- ===== JANELAS (modais) ===== -->
@@ -262,6 +231,56 @@
             <div class="adm-form__actions">
                 <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Cancelar</button>
                 <button class="adm-btn adm-btn--primary" value="save" type="submit">Salvar senha</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="adm-modal adm-modal--wide day-modal" id="day-modal">
+        <div class="dm">
+            <div class="dm__head">
+                <button class="adm-btn adm-btn--icon" id="day-prev" type="button" aria-label="Dia anterior">‹</button>
+                <div class="dm__title">
+                    <p class="adm-eyebrow">Visão do dia</p>
+                    <h2 id="day-title">—</h2>
+                    <p class="dm__sub" id="day-sub"></p>
+                </div>
+                <button class="adm-btn adm-btn--icon" id="day-next" type="button" aria-label="Próximo dia">›</button>
+                <div class="dm__actions">
+                    <button class="adm-btn" id="day-block" type="button">⛔ Indisponível</button>
+                    <button class="adm-btn adm-btn--primary" id="day-new" type="button">＋ Agendar</button>
+                    <button class="adm-btn adm-btn--icon" id="day-close" type="button" aria-label="Fechar">×</button>
+                </div>
+            </div>
+            <div id="day-body"></div>
+        </div>
+    </dialog>
+
+    <dialog class="adm-modal appt-view-modal" id="appt-view-modal">
+        <div class="adm-form">
+            <h2>Consulta</h2>
+            <div id="appt-view-body"></div>
+            <div class="adm-form__actions"><button class="adm-btn adm-btn--ghost" data-close type="button">Fechar</button></div>
+        </div>
+    </dialog>
+
+    <dialog class="adm-modal" id="block-modal">
+        <form method="dialog" class="adm-form" id="block-form">
+            <h2>⛔ Marcar como indisponível</h2>
+            <p class="adm-muted">Nesse período ninguém consegue agendar, nem pelo portal do cliente.</p>
+            <div class="adm-form__row">
+                <label>De<input name="date" type="date" required></label>
+                <label>Até o dia<input name="date_to" title="Opcional: para bloquear vários dias seguidos" type="date"></label>
+            </div>
+            <label class="ag-check"><input name="all_day" type="checkbox" checked> Dia inteiro</label>
+            <div class="adm-form__row" data-block-hours hidden>
+                <label>Início<input name="start" type="time" step="300" value="08:00"></label>
+                <label>Término<input name="end" type="time" step="300" value="12:00"></label>
+            </div>
+            <label>Motivo <span class="adm-muted">(opcional, só você vê)</span><input name="reason" maxlength="120" placeholder="Ex.: folga, curso, feriado"></label>
+            <p class="adm-form__error" role="alert"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Cancelar</button>
+                <button class="adm-btn adm-btn--primary" value="save" type="submit">Marcar indisponível</button>
             </div>
         </form>
     </dialog>
@@ -352,6 +371,7 @@
 
     <div class="adm-toast" id="toast" role="status" aria-live="polite"></div>
 
+    <script src="../js/shell.js"></script>
     <script src="../js/admin.js"></script>
     <script src="../js/theory.js"></script>
 </body>

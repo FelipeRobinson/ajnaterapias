@@ -19,8 +19,9 @@ from app.database import _PostgresDB, init_db
 
 # Tabelas na ordem certa (users antes de appointments, por causa da chave estrangeira).
 TABLES = {
-    "users": ["id", "name", "email", "phone", "password_hash", "role", "active", "created_at"],
+    "users": ["id", "name", "email", "phone", "password_hash", "role", "active", "avatar", "created_at"],
     "appointments": ["id", "patient_user_id", "date", "start", '"end"', "status", "created_at"],
+    "schedule_blocks": ["id", "date", "start", '"end"', "reason", "created_at"],
     "medical_records": ["id", "patient_user_id", "data", "created_at", "updated_at", "updated_by"],
     "session_protocols": ["id", "appointment_id", "patient_user_id", "data", "created_at", "updated_at", "updated_by"],
     "acupoints": ["code", "meridian", "number", "intl_code", "pinyin", "name_pt", "view", "x", "y",
@@ -29,7 +30,7 @@ TABLES = {
     "settings": ["key", "value"],  # inclui qual é a administradora principal
 }
 ORDER = {"acupoints": "code", "settings": "key"}
-HAS_ID = {"users", "appointments", "medical_records", "session_protocols", "theory_items"}
+HAS_ID = {"users", "appointments", "schedule_blocks", "medical_records", "session_protocols", "theory_items"}
 
 simular = "--simular" in sys.argv
 app = create_app({"INIT_DB": False})  # não conecta em nada até a hora de migrar

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from ..calendar_rules import closed_weekdays, events_between
 from ..database import get_db
 from ..security import csrf_required, login_required, roles_required
 
@@ -12,12 +13,9 @@ patient_bp = Blueprint("patient", __name__)
 # ------------------------------------------------------------------ regras da clínica
 # Ajuste aqui o funcionamento. Dia da semana: 0 = segunda ... 6 = domingo.
 OPENING_HOURS = {
-    0: ("08:00", "18:00"),
     1: ("08:00", "18:00"),
     2: ("08:00", "18:00"),
     3: ("08:00", "18:00"),
-    4: ("08:00", "18:00"),
-    5: ("08:00", "12:00"),
 }
 SLOT_MINUTES = 60          # duração de cada horário
 DAYS_AHEAD = 60            # até quantos dias à frente o cliente pode pedir
@@ -47,13 +45,14 @@ def _minutes(hm):
 
 def _free_slots(db, day):
     """Horários livres de um dia, conforme o funcionamento e as consultas já marcadas."""
-    hours = OPENING_HOURS.get(day.weekday())
+    hours = None if day.weekday() in closed_weekdays() else OPENING_HOURS.get(day.weekday())
     if not hours or day < date.today() or day > date.today() + timedelta(days=DAYS_AHEAD):
         return []
     busy = db.execute(
         """SELECT start, "end" FROM appointments WHERE date = ? AND status != 'cancelled'""",
         (day.isoformat(),),
     ).fetchall()
+    busy += db.execute('SELECT start, "end" FROM schedule_blocks WHERE date = ?', (day.isoformat(),)).fetchall()
     busy = [(_minutes(b["start"]), _minutes(b["end"])) for b in busy]
     now = datetime.now()
     slots = []
@@ -80,7 +79,20 @@ def availability():
     rows = get_db().execute(
         """SELECT start, "end" FROM appointments WHERE date = ? AND status != 'cancelled' ORDER BY start""", (day,)
     ).fetchall()
-    return jsonify(date=day, busy=[dict(r) for r in rows])
+    rows += get_db().execute('SELECT start, "end" FROM schedule_blocks WHERE date = ? ORDER BY start', (day,)).fetchall()
+    return jsonify(date=day, busy=sorted((dict(r) for r in rows), key=lambda r: r["start"]))
+
+
+@patient_bp.get("/events")
+@login_required
+@roles_required("patient", "admin")
+def events():
+    """Eventos da clínica (ex.: Reiki Para Todos). Sem período, devolve os próximos 6 meses."""
+    start = _parse_day(request.args.get("from")) or date.today()
+    end = _parse_day(request.args.get("to")) or start + timedelta(days=183)
+    if end < start or (end - start).days > 800:
+        return jsonify(error="Período inválido."), 400
+    return jsonify(items=events_between(start, end), closed_weekdays=list(closed_weekdays()))
 
 
 @patient_bp.get("/me/appointments")
@@ -107,7 +119,7 @@ def slots():
 def schedule_info():
     """Dias de funcionamento e limite de agendamento, para a tela de pedir horário."""
     return jsonify(
-        open_weekdays=sorted(OPENING_HOURS),
+        open_weekdays=sorted(w for w in OPENING_HOURS if w not in closed_weekdays()),
         # Horário de fechamento de hoje (ou null se fechado): a tela pula o dia se já passou.
         today_closes=(OPENING_HOURS.get(date.today().weekday()) or (None, None))[1],
         days_ahead=DAYS_AHEAD,

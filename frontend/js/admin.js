@@ -17,12 +17,16 @@
     const res = await fetch(url, { credentials: "same-origin", ...options, headers });
     const data = res.status === 204 ? null : await res.json().catch(() => null);
     if (res.status === 401) { location.replace("/login"); throw new Error("Sessão expirada."); }
-    if (!res.ok) throw new Error(data?.error || "Não foi possível concluir a ação.");
+    if (!res.ok) throw Object.assign(new Error(data?.error || "Não foi possível concluir a ação."), { data });
     return data;
   }
 
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  // foto do cliente (se ele enviou) ou as iniciais
+  const clientAvatar = (p, cls = "adm-client__avatar") => window.AjnaShell
+    ? window.AjnaShell.avatarHtml(p.name, p.avatar, cls)
+    : `<span class="${cls}" aria-hidden="true">${esc(initials(p.name))}</span>`;
   const initials = (name) => (name || "?").trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 
   // Datas sempre no fuso do computador (evita "pular" um dia por causa do UTC).
@@ -76,10 +80,10 @@
   }
 
   // ---------------------------------------------------------------- estado
-  const state = { patients: [], weekStart: startOfWeek(new Date()), view: "overview" };
+  const state = { patients: [], view: "overview" };
 
   // ---------------------------------------------------------------- navegação
-  const TITLES = { overview: "Visão geral", agenda: "Agenda", clients: "Clientes", account: "Minha conta", patient: "Ficha do paciente", points: "Mapa de pontos" };
+  const TITLES = { overview: "Visão geral", agenda: "Agenda", clients: "Clientes", patient: "Ficha do paciente", points: "Mapa de pontos" };
 
   // "#paciente-12" abre a ficha do paciente 12.
   function show(view) {
@@ -99,54 +103,13 @@
   }
 
   function refresh() {
+    if (state.dayOpen && $("#day-modal").open) openDay(state.dayOpen).catch(() => {});
     if (state.view === "overview") return loadOverview();
     if (state.view === "agenda") return loadAgenda();
     if (state.view === "clients") return loadClients();
-    if (state.view === "account") return loadAccount();
     if (state.view === "patient") return loadPatientFile();
     if (state.view === "points") return loadPointsView();
   }
-
-  // ---------------------------------------------------------------- minha conta
-  const accountForm = $("#account-form");
-
-  async function loadAccount() {
-    const me = await api("/api/account");
-    accountForm.reset();
-    $(".adm-form__error", accountForm).textContent = "";
-    accountForm.elements.name.value = me.name;
-    accountForm.elements.email.value = me.email;
-    accountForm.elements.phone.value = me.phone || "";
-
-
-  }
-
-  accountForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const error = $(".adm-form__error", accountForm);
-    error.textContent = "";
-    const data = Object.fromEntries(new FormData(accountForm));
-    if (data.new_password !== data.repeat) { error.textContent = "As novas senhas não conferem."; return; }
-    delete data.repeat;
-    const button = event.submitter || $('button[type="submit"]', accountForm);
-    button.disabled = true;
-    try {
-      const r = await api("/api/account/change-request", { method: "POST", body: data });
-      const status = $("#account-status");
-      status.hidden = false;
-      status.innerHTML = `📧 Enviamos o link para <b>${esc(r.sent_to)}</b>. Abra o e-mail e clique em <b>Confirmar alteração</b> em até ${r.minutes} minutos.`;
-      accountForm.elements.current_password.value = "";
-      accountForm.elements.new_password.value = "";
-      accountForm.elements.repeat.value = "";
-      toast("Confirmação enviada por e-mail.");
-    } catch (err) {
-      error.textContent = err.message;
-    } finally {
-      button.disabled = false;
-    }
-  });
-
-  $(".adm-top__user").addEventListener("click", (e) => { if (!e.target.closest("#logout")) show("account"); });
 
   // ---------------------------------------------------------------- visão geral
   function updateRequestBadge(n) {
@@ -197,36 +160,287 @@
   }
 
   // ---------------------------------------------------------------- agenda
-  async function loadAgenda() {
-    const start = state.weekStart;
-    const end = addDays(start, 6);
-    const sameMonth = start.getMonth() === end.getMonth();
-    $("#week-label").textContent = sameMonth
-      ? `${start.getDate()} – ${fmt(end, { day: "numeric", month: "long" })}`
-      : `${fmt(start, { day: "numeric", month: "short" })} – ${fmt(end, { day: "numeric", month: "short" })}`;
+  // Três jeitos de ver: lista (semana em blocos), semana (7 colunas lado a lado) e mês (calendário).
+  const AG_VIEWS = ["list", "week", "month"];
+  state.agView = AG_VIEWS.includes(localStorage.getItem("ajna-agenda-view")) ? localStorage.getItem("ajna-agenda-view") : "list";
+  state.cursor = new Date();
+  const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
-    const { items } = await api(`/api/admin/appointments?from=${iso(start)}&to=${iso(end)}`);
-    const today = iso(new Date());
-    $("#week-days").innerHTML = Array.from({ length: 7 }, (_, i) => {
-      const day = addDays(start, i);
-      const key = iso(day);
-      const list = items.filter((a) => a.date === key);
-      return `
-        <section class="adm-card adm-day ${key === today ? "adm-day--today" : ""}">
-          <div class="adm-day__head">
-            <h3>${cap(fmt(day, { weekday: "long", day: "numeric", month: "short" }))}</h3>
-            ${key === today ? '<span class="adm-badge adm-badge--scheduled">Hoje</span>' : ""}
-            <button class="adm-btn adm-btn--link" data-new-on="${key}" type="button" style="margin-left:auto">＋ Agendar</button>
-          </div>
-          <div class="adm-list">${list.length ? list.map((a) => appointmentRow(a)).join("") : '<p class="adm-muted">Livre</p>'}</div>
-        </section>`;
-    }).join("");
-    state.weekItems = items;
+  function agRange() {
+    if (state.agView !== "month") {
+      const start = startOfWeek(state.cursor);
+      return [start, addDays(start, 6)];
+    }
+    const start = startOfWeek(new Date(state.cursor.getFullYear(), state.cursor.getMonth(), 1));
+    return [start, addDays(start, 41)]; // 6 semanas
   }
 
-  $("#week-prev").addEventListener("click", () => { state.weekStart = addDays(state.weekStart, -7); loadAgenda(); });
-  $("#week-next").addEventListener("click", () => { state.weekStart = addDays(state.weekStart, 7); loadAgenda(); });
-  $("#week-today").addEventListener("click", () => { state.weekStart = startOfWeek(new Date()); loadAgenda(); });
+  function agLabel(start, end) {
+    if (state.agView === "month") return cap(fmt(state.cursor, { month: "long", year: "numeric" }));
+    const full = { day: "numeric", month: "short", year: "numeric" };
+    if (start.getMonth() === end.getMonth()) return `${start.getDate()} – ${fmt(end, { day: "numeric", month: "long", year: "numeric" })}`;
+    return start.getFullYear() === end.getFullYear()
+      ? `${fmt(start, { day: "numeric", month: "short" })} – ${fmt(end, full)}`
+      : `${fmt(start, full)} – ${fmt(end, full)}`;
+  }
+
+  const fullDay = (b) => b.start <= "00:00" && b.end >= "23:59";
+
+  function blockRow(b, compact = false) {
+    const when = fullDay(b) ? "Dia inteiro" : `${esc(b.start)}–${esc(b.end)}`;
+    return `<div class="ag-block ${compact ? "ag-block--sm" : ""}" title="${esc(b.reason || "Indisponível")}">
+      <span>⛔ ${when}${b.reason ? ` · ${esc(b.reason)}` : compact ? "" : " · Indisponível"}</span>
+      <button class="adm-btn adm-btn--sm" data-block-del="${b.id}" type="button" title="Liberar horário">${compact ? "×" : "Liberar"}</button>
+    </div>`;
+  }
+
+  function chip(a) {
+    return `<button class="ag-chip ag-chip--${a.status}" data-appt-pick="${a.id}" type="button" title="${esc(a.patient_name)} · ${STATUS[a.status] || ""}">
+      <b>${esc(a.start)}</b> ${esc(a.patient_name.split(" ")[0])}</button>`;
+  }
+
+  const byTime = (rows) => rows.sort((x, y) => x.t.localeCompare(y.t)).map((r) => r.h).join("");
+
+  // Dias sem atendimento (segunda, sexta, sábado e domingo) e eventos fixos (Reiki Para Todos) vêm do servidor.
+  const wd = (d) => (d.getDay() + 6) % 7; // 0 = segunda
+  const isClosedDay = (d) => (state.closedWeekdays || []).includes(wd(d));
+  const eventTag = (ev, big = false) =>
+    `<div class="ag-event ${big ? "ag-event--big" : ""}" title="${esc(ev.description)}">${ev.icon} <b>${esc(ev.title)}</b>${big ? `<span>${esc(ev.description)}</span>` : ""}</div>`;
+  const closedTag = '<div class="ag-closed">🚫 Sem atendimento</div>';
+
+  async function fetchRange(start, end) {
+    const q = `from=${iso(start)}&to=${iso(end)}`;
+    const [{ items }, { items: blocks }, ev] = await Promise.all([
+      api(`/api/admin/appointments?${q}`), api(`/api/admin/blocks?${q}`), api(`/api/patient/events?${q}`)]);
+    state.closedWeekdays = ev.closed_weekdays;
+    return { items, blocks, events: ev.items };
+  }
+
+  async function loadAgenda() {
+    const [start, end] = agRange();
+    $("#week-label").textContent = agLabel(start, end);
+    $$("[data-ag-view]").forEach((b) => b.classList.toggle("is-active", b.dataset.agView === state.agView));
+    const { items, blocks, events } = await fetchRange(start, end);
+    state.weekItems = items;
+    const today = iso(new Date());
+    const box = $("#week-days");
+    box.className = `adm-days ag-${state.agView}`;
+    const dayData = (day) => {
+      const key = iso(day);
+      const blk = blocks.filter((b) => b.date === key);
+      const closed = isClosedDay(day);
+      const evs = events.filter((e) => e.date === key);
+      // dia de evento (Reiki) não fica listrado de vermelho, mesmo sendo dia sem atendimento
+      return { key, closed, list: items.filter((a) => a.date === key), blk, evs,
+        off: (closed && !evs.length) || blk.some(fullDay) };
+    };
+    const openBtn = (key, label) => `<button class="ag-open" data-day-open="${key}" type="button" title="Abrir o dia">${label}</button>`;
+
+    if (state.agView === "list") {
+      box.innerHTML = Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(start, i);
+        const { key, list, blk, evs, closed, off } = dayData(day);
+        const rows = byTime([...blk.map((b) => ({ t: b.start, h: blockRow(b) })), ...list.map((a) => ({ t: a.start, h: appointmentRow(a) }))]);
+        return `
+        <section class="adm-card adm-day ${key === today ? "adm-day--today" : ""} ${off ? "ag-off" : ""}">
+          <div class="adm-day__head">
+            <h3>${openBtn(key, cap(fmt(day, { weekday: "long", day: "numeric", month: "short", year: "numeric" })))}</h3>
+            ${key === today ? '<span class="adm-badge adm-badge--scheduled">Hoje</span>' : ""}
+            <button class="adm-btn adm-btn--link" data-block-on="${key}" type="button" style="margin-left:auto">⛔ Indisponível</button>
+            <button class="adm-btn adm-btn--link" data-new-on="${key}" type="button">＋ Agendar</button>
+          </div>
+          <div class="adm-list">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${rows || (closed ? "" : '<p class="adm-muted">Livre</p>')}</div>
+        </section>`;
+      }).join("");
+      return;
+    }
+
+    if (state.agView === "week") {
+      box.innerHTML = `<div class="ag-weekgrid">${Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(start, i);
+        const { key, list, blk, evs, closed, off } = dayData(day);
+        const rows = byTime([...blk.map((b) => ({ t: b.start, h: blockRow(b, true) })), ...list.map((a) => ({ t: a.start, h: chip(a) }))]);
+        return `<section class="ag-col ${key === today ? "is-today" : ""} ${off ? "ag-off" : ""}">
+          <header data-day-open="${key}" title="Abrir o dia"><span>${WEEKDAYS[i]}</span><b>${day.getDate()}</b><small>${fmt(day, { month: "short", year: "numeric" })}</small></header>
+          <div class="ag-col__items">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${rows || (closed ? "" : '<p class="adm-muted">Livre</p>')}</div>
+          <footer>
+            <button class="adm-btn adm-btn--sm" data-day-open="${key}" type="button" title="Abrir o dia">🔍</button>
+            <button class="adm-btn adm-btn--sm" data-new-on="${key}" type="button" title="Agendar">＋</button>
+            <button class="adm-btn adm-btn--sm" data-block-on="${key}" type="button" title="Marcar indisponível">⛔</button>
+          </footer>
+        </section>`;
+      }).join("")}</div>`;
+      return;
+    }
+
+    // mês (calendário)
+    const month = state.cursor.getMonth();
+    box.innerHTML = `<div class="ag-month adm-card">
+      ${WEEKDAYS.map((w) => `<div class="ag-month__wd">${w}</div>`).join("")}
+      ${Array.from({ length: 42 }, (_, i) => {
+        const day = addDays(start, i);
+        const { key, list, blk, evs, closed, off } = dayData(day);
+        const active = list.filter((a) => a.status !== "cancelled");
+        const offLabel = closed && evs.length ? "" : closed ? '<span class="ag-cell__off ag-cell__off--closed">🚫 Sem atendimento</span>'
+          : off ? '<span class="ag-cell__off">⛔ Indisponível</span>'
+          : blk.length ? `<span class="ag-cell__off ag-cell__off--part">⛔ ${blk.length} período(s)</span>` : "";
+        return `<div class="ag-cell ${day.getMonth() !== month ? "is-out" : ""} ${key === today ? "is-today" : ""} ${off ? "ag-off" : ""}" data-day-open="${key}">
+          <span class="ag-cell__num">${day.getDate()}</span>
+          ${offLabel}
+          ${evs.map((e) => `<span class="ag-cell__event" title="${esc(e.title)}">${e.icon} ${esc(e.title)}</span>`).join("")}
+          <div class="ag-cell__items">${active.slice(0, 3).map(chip).join("")}${active.length > 3 ? `<span class="ag-more">+${active.length - 3} mais</span>` : ""}</div>
+          ${active.length ? `<span class="ag-cell__count">${active.length}</span>` : ""}
+          <div class="ag-cell__act">
+            <button data-new-on="${key}" type="button" title="Agendar">＋</button>
+            <button data-block-on="${key}" type="button" title="Marcar indisponível">⛔</button>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  // ---------------------------------------------------------------- janela do dia (visão do dia inteiro)
+  const DAY_FROM = 7, DAY_TO = 21; // horas mostradas na linha do tempo
+  const toMin = (hm) => { const [h, m] = hm.split(":").map(Number); return h * 60 + m; };
+
+  async function openDay(key) {
+    state.dayOpen = key;
+    const day = fromIso(key);
+    const { items, blocks, events } = await fetchRange(day, day);
+    state.dayItems = items;
+    const closed = isClosedDay(day);
+    const active = items.filter((a) => a.status !== "cancelled");
+    $("#day-title").textContent = cap(fmt(day, { weekday: "long", day: "numeric", month: "long", year: "numeric" }));
+    const counts = ["requested", "scheduled", "done", "cancelled"].map((s) => [s, items.filter((a) => a.status === s).length]).filter(([, n]) => n);
+    $("#day-sub").innerHTML = (key === iso(new Date()) ? '<span class="adm-badge adm-badge--scheduled">Hoje</span> ' : "") +
+      (items.length ? counts.map(([s, n]) => `<span class="adm-badge adm-badge--${s}">${n} ${STATUS[s].toLowerCase()}</span>`).join(" ") : "Nenhuma consulta");
+
+    // linha do tempo
+    const span = (DAY_TO - DAY_FROM) * 60;
+    const pos = (s, e) => {
+      const a = Math.max(toMin(s), DAY_FROM * 60), b = Math.min(toMin(e), DAY_TO * 60);
+      return `top:${((a - DAY_FROM * 60) / span) * 100}%;height:${Math.max(((b - a) / span) * 100, 2.2)}%`;
+    };
+    const hours = Array.from({ length: DAY_TO - DAY_FROM + 1 }, (_, i) =>
+      `<div class="dv-hour" style="top:${(i / (DAY_TO - DAY_FROM)) * 100}%"><span>${String(DAY_FROM + i).padStart(2, "0")}:00</span></div>`).join("");
+    const blockEls = blocks.map((b) => `<div class="dv-item dv-block" style="${pos(b.start, b.end)}">
+      ⛔ ${fullDay(b) ? "Dia inteiro" : `${esc(b.start)}–${esc(b.end)}`}${b.reason ? ` · ${esc(b.reason)}` : ""}
+      <button class="adm-btn adm-btn--sm" data-block-del="${b.id}" type="button">Liberar</button></div>`).join("");
+    // consultas que se sobrepõem ficam lado a lado
+    const sorted = [...active].sort((a, b) => a.start.localeCompare(b.start));
+    const lanes = [];
+    const placed = sorted.map((a) => {
+      let lane = lanes.findIndex((end) => end <= a.start);
+      if (lane < 0) { lane = lanes.length; lanes.push(a.end); } else lanes[lane] = a.end;
+      return { a, lane };
+    });
+    const nl = Math.max(lanes.length, 1);
+    const apptEls = placed.map(({ a, lane }) => `<button class="dv-item dv-appt dv-appt--${a.status}" data-appt-pick="${a.id}" type="button"
+        style="${pos(a.start, a.end)};left:calc(${(lane / nl) * 100}% + 4px);width:calc(${100 / nl}% - 8px)">
+        <b>${esc(a.start)}–${esc(a.end)}</b><span>${esc(a.patient_name)}</span><small>${STATUS[a.status]}</small></button>`).join("");
+    const nowLine = key === iso(new Date()) ? (() => {
+      const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+      return m >= DAY_FROM * 60 && m <= DAY_TO * 60 ? `<div class="dv-now" style="top:${((m - DAY_FROM * 60) / span) * 100}%"></div>` : "";
+    })() : "";
+
+    const cancelled = items.filter((a) => a.status === "cancelled");
+    $("#day-body").innerHTML = `
+      <div class="dv">
+        <div class="dv-scroll"><div class="dv-timeline ${closed && !events.length ? "is-closed" : ""}">
+          ${hours}
+          <div class="dv-lane">${blockEls}${apptEls}${nowLine}</div>
+        </div></div>
+        <aside class="dv-side">
+          ${closed ? '<div class="ag-closed">🚫 Dia sem atendimento (só há atendimento de terça a quinta). Dá para agendar só como exceção.</div>' : ""}
+          ${events.map((e) => eventTag(e, true)).join("")}
+          <h3 class="mp-subtitle">Consultas do dia</h3>
+          <div class="adm-list">${sorted.map((a) => appointmentRow(a)).join("") || '<p class="adm-muted">Nenhuma consulta marcada.</p>'}</div>
+          ${cancelled.length ? `<details class="dv-cancel"><summary>${cancelled.length} cancelada(s)</summary><div class="adm-list">${cancelled.map((a) => appointmentRow(a)).join("")}</div></details>` : ""}
+        </aside>
+      </div>`;
+    const modal = $("#day-modal");
+    if (!modal.open) modal.showModal();
+    // rola a linha do tempo até a primeira consulta (ou 8h)
+    const first = sorted[0] ? toMin(sorted[0].start) : 8 * 60;
+    $(".dv-scroll").scrollTop = Math.max(0, ((first - DAY_FROM * 60) / 60) * 64 - 24);
+  }
+
+  $("#day-close").addEventListener("click", () => $("#day-modal").close());
+  $("#day-prev").addEventListener("click", () => openDay(iso(addDays(fromIso(state.dayOpen), -1))));
+  $("#day-next").addEventListener("click", () => openDay(iso(addDays(fromIso(state.dayOpen), 1))));
+  $("#day-new").addEventListener("click", () => openAppointment({ date: state.dayOpen }));
+  $("#day-block").addEventListener("click", () => openBlock(state.dayOpen));
+  $("#day-modal").addEventListener("close", () => { state.dayOpen = null; });
+
+  function agStep(dir) {
+    const c = state.cursor;
+    state.cursor = state.agView === "month" ? new Date(c.getFullYear(), c.getMonth() + dir, 1) : addDays(c, 7 * dir);
+    loadAgenda();
+  }
+  $("#week-prev").addEventListener("click", () => agStep(-1));
+  $("#week-next").addEventListener("click", () => agStep(1));
+  $("#week-today").addEventListener("click", () => { state.cursor = new Date(); loadAgenda(); });
+  $$("[data-ag-view]").forEach((b) => b.addEventListener("click", () => {
+    state.agView = b.dataset.agView;
+    localStorage.setItem("ajna-agenda-view", state.agView);
+    loadAgenda();
+  }));
+
+  // Abrir o dia; consulta compacta -> janela com as ações; bloqueios.
+  document.addEventListener("click", async (e) => {
+    const open = e.target.closest("[data-day-open]");
+    if (open && !e.target.closest("button:not([data-day-open]), [data-appt-pick]")) {
+      return void openDay(open.dataset.dayOpen).catch((err) => toast(err.message, true));
+    }
+    const pick = e.target.closest("[data-appt-pick]");
+    if (pick) {
+      const a = [...(state.dayItems || []), ...(state.weekItems || [])].find((x) => x.id == pick.dataset.apptPick);
+      if (!a) return;
+      $("#appt-view-body").innerHTML = `<p class="adm-muted">${cap(fmt(fromIso(a.date), { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}</p>
+        <div class="adm-list">${appointmentRow(a)}</div>`;
+      $("#appt-view-modal").showModal();
+      return;
+    }
+    const del = e.target.closest("[data-block-del]");
+    if (del) {
+      if (!(await confirmAction("Liberar horário?", "O período volta a ficar disponível para agendamento.", "Liberar"))) return;
+      try {
+        await api(`/api/admin/blocks/${del.dataset.blockDel}`, { method: "DELETE" });
+        toast("Horário liberado.");
+        loadAgenda();
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
+    const on = e.target.closest("[data-block-on]");
+    if (on) openBlock(on.dataset.blockOn || iso(state.agView === "month" ? new Date() : state.cursor));
+  });
+  $("#appt-view-modal").addEventListener("click", (e) => {
+    if (e.target.closest("button")) $("#appt-view-modal").close();
+  });
+
+  // Janela "marcar indisponível"
+  const blockModal = $("#block-modal");
+  const blockForm = $("#block-form");
+  const syncAllDay = () => { $("[data-block-hours]", blockForm).hidden = blockForm.elements.all_day.checked; };
+  blockForm.elements.all_day.addEventListener("change", syncAllDay);
+  function openBlock(day) {
+    blockForm.reset();
+    $(".adm-form__error", blockForm).textContent = "";
+    blockForm.elements.date.value = day;
+    syncAllDay();
+    blockModal.showModal();
+  }
+  bindForm(blockModal, async (data) => {
+    const allDay = blockForm.elements.all_day.checked;
+    const body = { date: data.date, date_to: data.date_to || data.date, reason: data.reason,
+      start: allDay ? "00:00" : data.start, end: allDay ? "23:59" : data.end };
+    const r = await api("/api/admin/blocks", { method: "POST", body });
+    toast(r.appointments_inside
+      ? `Marcado como indisponível. Atenção: já há ${r.appointments_inside} consulta(s) nesse período.`
+      : "Marcado como indisponível.", Boolean(r.appointments_inside));
+    state.cursor = fromIso(data.date);
+    loadAgenda();
+  });
 
   // Ações nas consultas (funciona na visão geral e na agenda).
   document.addEventListener("click", async (event) => {
@@ -295,17 +509,28 @@
     if (Number.isFinite(h) && h < 23) apptForm.elements.end.value = `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   });
 
+  async function sendAppointment(url, method, body) {
+    try {
+      return await api(url, { method, body });
+    } catch (err) {
+      if (!err.data?.closed_day) throw err;
+      const ok = await confirmAction("Dia sem atendimento", "Só há atendimento de terça a quinta. Agendar mesmo assim, como exceção?", "Agendar mesmo assim");
+      if (!ok) throw err;
+      return api(url, { method, body: { ...body, force: true } });
+    }
+  }
+
   bindForm(apptModal, async (data) => {
     const id = apptForm.dataset.id;
     if (id) {
       delete data.patient_user_id;
-      await api(`/api/admin/appointments/${id}`, { method: "PATCH", body: data });
+      await sendAppointment(`/api/admin/appointments/${id}`, "PATCH", data);
       toast("Consulta remarcada.");
     } else {
-      await api("/api/admin/appointments", { method: "POST", body: data });
+      await sendAppointment("/api/admin/appointments", "POST", data);
       toast("Consulta agendada.");
     }
-    state.weekStart = startOfWeek(fromIso(data.date || iso(new Date())));
+    state.cursor = fromIso(data.date || iso(new Date()));
     refresh();
   });
 
@@ -328,7 +553,7 @@
 
     $("#client-list").innerHTML = list.length ? list.map((p) => `
       <div class="adm-client">
-        <span class="adm-client__avatar" aria-hidden="true">${esc(initials(p.name))}</span>
+        ${clientAvatar(p)}
         <div>
           <div class="adm-client__name">${esc(p.name)}</div>
           <div class="adm-muted" style="font-size:.82rem">${p.appointments} consulta(s)</div>
@@ -491,7 +716,7 @@
     const next = file.sessions.filter((s) => ["scheduled", "requested"].includes(s.status)).at(-1);
     $("#view-title").textContent = "Ficha do paciente";
     $("#pf-head").innerHTML = `
-      <span class="adm-client__avatar pf-avatar" aria-hidden="true">${esc(initials(p.name))}</span>
+      ${clientAvatar(p, "adm-client__avatar pf-avatar")}
       <div class="pf-head__info">
         <h2>${esc(p.name)} <span class="adm-badge adm-badge--${p.active ? "active" : "inactive"}">${p.active ? "Ativo" : "Desativado"}</span></h2>
         <p class="adm-muted">${esc(p.email)}${p.phone ? ` · ${esc(p.phone)}` : ""} · cliente desde ${dateBR(p.created_at)}</p>
@@ -1676,7 +1901,8 @@
       if (me.role !== "admin") return location.replace("/cliente");
       csrfToken = me.csrf_token || "";
       $("#admin-name").textContent = me.name;
-      $("#admin-avatar").textContent = initials(me.name);
+      window.AjnaShell?.setUser(me);
+      if (!window.AjnaShell) $("#admin-avatar").textContent = initials(me.name);
       $("#today-label").textContent = fmt(new Date(), { weekday: "long", day: "numeric", month: "long" });
       show(location.hash.slice(1) || "overview");
     } catch (_) {

@@ -73,6 +73,10 @@ O **Ajna Terapias** é o site do Instituto Ajna, um espaço de terapias integrat
 - 🔁 Admin **redefine senha** e **ativa/desativa** clientes
 - 📊 Painel com totais de clientes e consultas do dia
 - 📅 Cliente vê **as próprias consultas**
+- 📋 **Prontuário** e **protocolo por sessão** (só administração)
+- 🧊 **Mapa de pontos**: corpo 3D feminino + orelha 2D (79 pontos), em tela cheia
+- 📚 **Parte teórica**: ficha dos pontos, diagnósticos, sintomas, combinações e **galeria da língua** com fotos
+- 🧍 Na ficha do paciente, **corpo 3D com os pontos usados nele** (masculino se o sexo no prontuário for Masculino)
 
 </td>
 </tr>
@@ -229,7 +233,7 @@ ajnaterapias/
 │   │   ├── acupoints_data.py  ☯ os 361 pontos (códigos, pinyin, meridianos, posições)
 │   │   └── routes/
 │   │       ├── auth.py          🔑 login, logout, "quem sou eu"
-│   │       ├── account.py       🔐 "Minha conta" do admin (confirmação por e-mail)
+│   │       ├── account.py       🔐 alteração de dados do admin por e-mail (sem tela no painel)
 │   │       ├── crm.py           🛠️ painel e gestão de clientes (admin)
 │   │       ├── patient.py       🙋 consultas do cliente
 │   │       ├── records.py       📋 prontuário e protocolos (campos definidos aqui)
@@ -420,6 +424,9 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 | ✅ `test_admin_creates_patient_who_can_log_in` | Admin cria cliente → cliente entra → cliente **não** acessa o painel; CSRF é exigido |
 | ✅ `test_wrong_password` | Senha errada é recusada |
 | ✅ `test_duplicate_email_is_rejected` | E-mail repetido é recusado e o banco continua consistente |
+| ✅ `test_theory.py` | Parte teórica: classificações, ficha editável, diagnósticos/sintomas/combinações, galeria da língua e bloqueio para pacientes |
+
+Ao todo são **46 testes**.
 
 ---
 
@@ -435,14 +442,24 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 - [x] 📅 Cliente pede horário pelo portal e a clínica confirma
 - [x] 🔐 Admin altera o próprio login com aprovação da administradora principal por e-mail
 - [x] 🔑 "Esqueci minha senha" para clientes e administradores
+- [x] 📆 Agenda em lista, semana (colunas) e mês (calendário), com o ano
+- [x] ⛔ Horários indisponíveis (bloqueiam o painel e o portal do cliente)
+- [x] 🚫 Atendimento só de terça a quinta; segunda, sexta, sábado e domingo fechados (exceção só pelo painel)
+- [x] 🌟 "Reiki Para Todos" no último sábado de cada mês, na agenda e na área do cliente
+- [x] 🔍 Janela do dia com linha do tempo, consultas, bloqueios e eventos
+- [x] 🔐 Senha do admin só muda pelo link enviado ao e-mail
+- [x] ☰ Menu hambúrguer: faixa com logo no computador e botão no canto no celular
+- [x] 📷 Foto de perfil opcional (admin e clientes)
 - [ ] 💬 Chat no site para o primeiro atendimento (sem login)
 - [x] 📋 Prontuário (ficha fixa) e protocolo por sessão, só para a administração
 - [x] ☯ Mapa interativo dos 361 pontos (OMS) ligado aos protocolos
 - [x] 🧊 Mapa 3D com camadas (pele, músculos, ossos), orelha e zoom no ponto
 - [x] 👂 79 pontos de auriculoterapia (GB/T 13734) com mapa da orelha
-- [x] ♀ Corpo feminino no 3D (pele e esqueleto parcial)
+- [x] ♀ Corpo feminino no 3D (pele e esqueleto parcial), mais fino e padrão do mapa (sem corpo 2D)
+- [x] 🧍 Corpo 3D na ficha do paciente com os pontos dos protocolos dele (♂ para pacientes homens)
 - [x] 🧍 Bonequinho em cada sessão com os pontos usados (clique para marcar)
 - [x] 📚 Parte teórica do mapa: ficha técnica dos pontos, diagnósticos MTC, sintomas e combinações (cesta)
+- [x] 👅 Galeria de diagnóstico pela língua: 31 aspectos com fotos e diagnósticos relacionados
 - [ ] 💰 Módulo financeiro
 - [ ] ☁️ Publicação em hospedagem com domínio próprio
 

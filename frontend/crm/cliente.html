@@ -64,6 +64,10 @@
                         </a>
                     </div>
                 </section>
+                <section class="adm-card cli-events">
+                    <div class="adm-card__head"><h2>🌟 Eventos da clínica</h2></div>
+                    <div id="home-events" class="adm-list"></div>
+                </section>
             </div>
         </section>
 
@@ -101,7 +105,8 @@
         <section class="adm-view" id="view-profile" hidden>
             <div class="adm-grid adm-grid--even">
                 <section class="adm-card">
-                    <div class="adm-card__head"><h2>Meus dados</h2></div>
+                    <div class="adm-card__head"><h2>Meus dados</h2>
+                        <button class="adm-btn adm-btn--ghost" type="button" onclick="window.AjnaShell && AjnaShell.openPhoto()">📷 Foto do perfil</button></div>
                     <form class="adm-form adm-form--inline" id="profile-form">
                         <label>Nome<input name="name" disabled></label>
                         <label>E-mail<input name="email" disabled></label>
@@ -138,6 +143,7 @@
 
     <div class="adm-toast" id="toast" role="status" aria-live="polite"></div>
 
+    <script src="../js/shell.js"></script>
     <script src="../js/cliente.js"></script>
 </body>
 

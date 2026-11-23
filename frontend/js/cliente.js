@@ -137,6 +137,13 @@
       <button class="adm-btn cli-hero__btn" data-goto="book" type="button">＋ Pedir horário</button>`;
     $("#home-upcoming").innerHTML = upcoming.slice(0, 3).map(row).join("")
       || '<p class="adm-empty">Você ainda não tem consultas futuras.</p>';
+    // Eventos abertos a todos (ex.: Reiki Para Todos, no último sábado do mês)
+    try {
+      const { items } = await api("/api/patient/events");
+      $("#home-events").innerHTML = items.slice(0, 3).map((e, i) => `
+        <div class="ag-event ${i === 0 ? "ag-event--big" : ""}">${e.icon} <b>${esc(e.title)}</b> · ${cap(fmt(fromIso(e.date), { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}
+          ${i === 0 ? `<span>${esc(e.description)}</span>` : ""}</div>`).join("") || '<p class="adm-empty">Nenhum evento programado.</p>';
+    } catch { $("#home-events").innerHTML = ""; }
   }
 
   // ---------------------------------------------------------------- agendar
@@ -265,7 +272,8 @@
       if (me.role !== "patient") return location.replace("/crm/painel");
       csrfToken = me.csrf_token || "";
       state.me = me;
-      $("#client-avatar").textContent = me.name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+      if (window.AjnaShell) window.AjnaShell.setUser(me);
+      else $("#client-avatar").textContent = me.name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
       $("#today-label").textContent = fmt(new Date(), { weekday: "long", day: "numeric", month: "long" });
       if (WHATSAPP) $("#whatsapp-link").href = `https://wa.me/${WHATSAPP}`;
       show(location.hash.slice(1) || "home");

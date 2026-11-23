@@ -18,13 +18,17 @@ TABLES = [
     ("users", "#dae8fc", 40, 40, [
         ("id", "INTEGER", "PK"), ("name", "TEXT", ""), ("email", "TEXT", "UK"), ("phone", "TEXT", ""),
         ("password_hash", "TEXT", ""), ("role", "TEXT  admin | patient", ""), ("active", "INTEGER 0/1", ""),
-        ("created_at", "TEXT", ""),
+        ("avatar", "TEXT (foto opcional, data:image)", ""), ("created_at", "TEXT", ""),
     ], "Administradores e clientes (pacientes)"),
     ("appointments", "#d5e8d4", 420, 40, [
         ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users"), ("date", "TEXT AAAA-MM-DD", ""),
         ("start", "TEXT HH:MM", ""), ("end", "TEXT HH:MM", ""),
         ("status", "TEXT requested|scheduled|done|cancelled", ""), ("created_at", "TEXT", ""),
     ], "Consultas (pedidas pelo cliente, confirmadas pelo admin)"),
+    ("schedule_blocks", "#d5e8d4", 420, 780, [
+        ("id", "INTEGER", "PK"), ("date", "TEXT AAAA-MM-DD", ""), ("start", "TEXT HH:MM", ""),
+        ("end", "TEXT HH:MM (dia inteiro = 00:00–23:59)", ""), ("reason", "TEXT", ""), ("created_at", "TEXT", ""),
+    ], "Horários indisponíveis marcados pela administração (bloqueiam a agenda e o portal)"),
     ("medical_records", "#f8cecc", 40, 400, [
         ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users · UK"), ("data", "TEXT (JSON)", ""),
         ("created_at", "TEXT", ""), ("updated_at", "TEXT", ""), ("updated_by", "INTEGER", "FK→users"),
@@ -44,11 +48,11 @@ TABLES = [
         ("id", "INTEGER", "PK"), ("user_id", "INTEGER", "FK→users"), ("token_hash", "TEXT", "UK"),
         ("payload", "TEXT (JSON)", ""), ("expires_at", "TEXT", ""), ("used", "INTEGER 0/1", ""),
         ("created_at", "TEXT", ""),
-    ], "Alteração de login do admin, aprovada por e-mail"),
+    ], "Alteração de nome/e-mail/telefone do admin, aprovada por e-mail (senha nunca)"),
     ("password_resets", "#fff2cc", 1180, 40, [
         ("id", "INTEGER", "PK"), ("user_id", "INTEGER", "FK→users"), ("token_hash", "TEXT", "UK"),
         ("expires_at", "TEXT", ""), ("used", "INTEGER 0/1", ""), ("created_at", "TEXT", ""),
-    ], "Esqueci minha senha (link por e-mail)"),
+    ], "Esqueci minha senha (link por e-mail) — único jeito de trocar a senha do admin"),
     ("theory_items", "#e1d5e7", 1180, 560, [
         ("id", "INTEGER", "PK"), ("kind", "TEXT syndrome|symptom|combination|tongue", ""), ("name", "TEXT", ""),
         ("group_name", "TEXT", ""), ("data", "TEXT (JSON)", ""), ("points", "TEXT (JSON códigos)", ""),

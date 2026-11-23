@@ -20,13 +20,13 @@ def test_change_requires_email_confirmation(tmp_path):
     app, c, h = setup(tmp_path)
     r = c.post("/api/account/change-request", headers=h, json={
         "current_password": "senha-admin-123", "email": "novo@x.com",
-        "phone": "(19) 90000-0000", "new_password": "senha-nova-segura"})
+        "phone": "(19) 90000-0000"})
     assert r.status_code == 200 and r.get_json()["sent_to"].endswith("@x.com")
 
     # o e-mail vai para o endereço ATUAL, e nada mudou ainda
     msg = app.config["OUTBOX"][-1]
     assert msg["To"] == "adm@x.com"
-    assert c.application.test_client().post("/api/auth/login", json={"email": "novo@x.com", "password": "senha-nova-segura"}).status_code == 401
+    assert c.application.test_client().post("/api/auth/login", json={"email": "novo@x.com", "password": "senha-admin-123"}).status_code == 401
 
     link = last_link(app)
     page = c.get(link)
@@ -34,7 +34,7 @@ def test_change_requires_email_confirmation(tmp_path):
 
     fresh = app.test_client()
     assert fresh.post("/api/auth/login", json={"email": "adm@x.com", "password": "senha-admin-123"}).status_code == 401
-    assert fresh.post("/api/auth/login", json={"email": "novo@x.com", "password": "senha-nova-segura"}).status_code == 200
+    assert fresh.post("/api/auth/login", json={"email": "novo@x.com", "password": "senha-admin-123"}).status_code == 200
     assert fresh.get("/api/account").get_json()["phone"] == "(19) 90000-0000"
 
     # avisos de alteração enviados ao e-mail antigo e ao novo
@@ -52,6 +52,25 @@ def test_wrong_current_password_and_weak_password(tmp_path):
     assert c.post("/api/account/change-request", headers=h,
                   json={"current_password": "senha-admin-123", "new_password": "curta"}).status_code == 400
     assert app.config["OUTBOX"] == []
+
+
+def test_admin_password_never_changes_through_the_site(tmp_path):
+    app, c, h = setup(tmp_path)
+    r = c.post("/api/account/change-request", headers=h,
+               json={"current_password": "senha-admin-123", "new_password": "outra-senha-bem-longa"})
+    assert r.status_code == 400 and "link" in r.get_json()["error"]
+    assert app.config["OUTBOX"] == []
+    # nem um pedido antigo com senha guardada consegue trocá-la
+    import json as _json
+    from app.database import get_db
+    from app.routes.account import _hash
+    with app.app_context():
+        db = get_db()
+        db.execute("INSERT INTO account_changes (user_id, token_hash, payload, expires_at) VALUES ((SELECT id FROM users WHERE email = 'adm@x.com'), ?, ?, '2999-01-01 00:00:00')",
+                   (_hash("velho"), _json.dumps({"password_hash": "x"})))
+        db.commit()
+    assert c.get("/api/account/confirm?token=velho").status_code == 400
+    assert app.test_client().post("/api/auth/login", json={"email": "adm@x.com", "password": "senha-admin-123"}).status_code == 200
 
 
 def test_new_request_invalidates_old_link_and_expired_link(tmp_path):
