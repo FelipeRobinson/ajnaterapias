@@ -46,7 +46,7 @@
         <button class="primary" id="do-print" type="button">🖨️ Imprimir</button>
         <button type="button" onclick="close()">Fechar</button>
       </div>
-      <div class="tip" id="tip" hidden>💡 Na janela que abrir, em <b>Destino</b>, escolha <b>“Salvar como PDF”</b> e clique em <b>Salvar</b>.</div>
+      <div class="tip" id="tip" hidden></div>
       <div class="page">
         <header><img src="${logo}" alt=""><div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>
           <div class="gen">Instituto Ajna Terapias Integrativas<br>e Complementares®<br>Gerado em ${esc(now)}</div></header>
@@ -57,13 +57,128 @@
     // nome sugerido para o arquivo PDF (o navegador usa o título da página)
     const fileName = `${title} - ${subtitle}`.replace(/[\/:*?"<>|]+/g, "-").trim();
     const d = w.document;
-    d.getElementById("do-print").onclick = () => { d.getElementById("tip").hidden = true; w.print(); };
-    d.getElementById("save-pdf").onclick = () => {
-      d.getElementById("tip").hidden = false;
-      const old = d.title;
-      d.title = fileName;
-      setTimeout(() => { w.print(); d.title = old; }, 150);
+    const tip = d.getElementById("tip");
+    d.getElementById("do-print").onclick = () => { tip.hidden = true; w.print(); };
+    // 💾 Salvar PDF: o servidor gera o arquivo e ele é baixado direto (sem a janela da impressora)
+    d.getElementById("save-pdf").onclick = async (ev) => {
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+      tip.hidden = false;
+      tip.textContent = "⏳ Gerando o PDF…";
+      try {
+        const body = await pdfHtml(d, { title, subtitle, now, confidential });
+        const res = await fetch("/api/admin/pdf", {
+          method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": window.AjnaShell?.csrf() || "" },
+          body: JSON.stringify({ html: body, filename: fileName,
+            footer: (confidential ? "Documento confidencial — dados de saúde protegidos pela LGPD. " : "") + "Instituto Ajna Terapias Integrativas e Complementares®" }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Não foi possível gerar o PDF.");
+        const blob = await res.blob();
+        const a = d.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${fileName}.pdf`;
+        d.body.append(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        tip.textContent = `✅ PDF baixado: ${fileName}.pdf (veja a pasta Downloads).`;
+      } catch (err) {
+        tip.textContent = `⚠️ ${err.message}`;
+      } finally { btn.disabled = false; }
     };
+  }
+
+  // ---------------------------------------------------------------- HTML simplificado para o gerador de PDF
+  // (o gerador não entende grid/flex nem SVG: vira tabela e imagem; emojis saem porque a fonte do PDF não tem)
+  const EMOJI = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu;
+  let logoData = null;
+
+  function toDataUrl(src) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = img.naturalWidth || 300;
+        c.height = img.naturalHeight || 150;
+        const g = c.getContext("2d");
+        g.fillStyle = "#fff";
+        g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0, c.width, c.height);
+        try { resolve(c.toDataURL("image/png")); } catch { resolve(""); }
+      };
+      img.onerror = () => resolve("");
+      img.src = src;
+    });
+  }
+
+  async function pdfHtml(d, { title, subtitle, now }) {
+    if (logoData === null) {
+      logoData = await new Promise((resolve) => {   // logo sobre o fundo roxo da marca
+        const img = new Image();
+        img.onload = () => {
+          const c = document.createElement("canvas");
+          c.width = c.height = 120;
+          const g = c.getContext("2d");
+          g.fillStyle = "#24063a";
+          g.fillRect(0, 0, 120, 120);
+          g.drawImage(img, 10, 10, 100, 100);
+          resolve(c.toDataURL("image/png"));
+        };
+        img.onerror = () => resolve("");
+        img.src = logo;
+      });
+    }
+    const page = d.querySelector(".page").cloneNode(true);
+    page.querySelector("header")?.remove();
+    page.querySelector("footer")?.remove();
+    // dl -> tabela de duas colunas
+    page.querySelectorAll("dl.kv").forEach((dl) => {
+      const t = d.createElement("table");
+      const kids = [...dl.children];
+      for (let i = 0; i < kids.length; i += 2) {
+        const tr = t.insertRow();
+        const k = tr.insertCell(); k.className = "k"; k.innerHTML = kids[i].innerHTML;
+        const v = tr.insertCell(); v.innerHTML = kids[i + 1]?.innerHTML ?? "";
+      }
+      dl.replaceWith(t);
+    });
+    // cartões de totais -> tabela
+    page.querySelectorAll(".totals").forEach((box) => {
+      const t = d.createElement("table");
+      t.className = "totals";
+      const tr = t.insertRow();
+      [...box.children].forEach((div) => {
+        const td = tr.insertCell();
+        const label = div.querySelector("span")?.textContent || "";
+        const rest = div.cloneNode(true);
+        rest.querySelector("span")?.remove();
+        td.innerHTML = `<div class="lbl">${esc(label)}</div><div class="val">${rest.innerHTML}</div>`;
+      });
+      box.replaceWith(t);
+    });
+    // gráficos SVG -> imagem PNG
+    for (const svg of [...page.querySelectorAll("svg")]) {
+      const live = [...d.querySelectorAll(".page svg")][[...page.querySelectorAll("svg")].indexOf(svg)];
+      const vb = (svg.getAttribute("viewBox") || "0 0 640 220").split(/\s+/).map(Number);
+      const clone = svg.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      clone.setAttribute("width", vb[2] * 2);
+      clone.setAttribute("height", vb[3] * 2);
+      const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+      const png = await toDataUrl(url);
+      const img = d.createElement("img");
+      if (png) { img.src = png; img.setAttribute("width", "520"); }
+      (live ? svg : svg).replaceWith(png ? img : d.createTextNode(""));
+    }
+    // a 2ª folha (acompanhamento) começa numa página nova
+    page.querySelectorAll(".sheet").forEach((s) => s.insertAdjacentHTML("beforebegin", "<pdf:nextpage />"));
+    const head = `<table class="head"><tr>
+      <td width="58">${logoData ? `<img src="${logoData}" width="48" height="48">` : ""}</td>
+      <td><h1>${esc(title)}</h1><div class="muted">${esc(subtitle)}</div></td>
+      <td class="gen">Instituto Ajna Terapias Integrativas<br>e Complementares®<br>Gerado em ${esc(now)}</td></tr></table>
+      <hr color="#7800b4" size="2">`;
+    // a fonte do PDF (Helvetica) não tem alguns símbolos: troca por equivalentes
+    return (head + page.innerHTML).replace(EMOJI, "").replace(/→/g, "->").replace(/−/g, "-").replace(/●/g, "•");
   }
 
   /** Baixa um CSV (separado por ";", com BOM) que o Excel em português abre certinho. */

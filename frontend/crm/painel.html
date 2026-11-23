@@ -8,6 +8,8 @@
     <title>Painel | Ajna Terapias</title>
     <link rel="icon" href="../img/url_logo.png">
     <link rel="stylesheet" href="../css/pages/admin.css">
+    <script>/* tema escolhido (claro é o padrão) — aplicado antes de desenhar a página */
+        if (localStorage.getItem("ajna-theme") === "dark") document.documentElement.classList.add("theme-dark");</script>
     <script type="importmap">{ "imports": { "three": "../vendor/three/three.module.min.js" } }</script>
 </head>
 
@@ -19,19 +21,19 @@
             <span>Ajna <b>Terapias</b></span>
         </a>
         <button class="adm-nav__item is-active" data-view="overview" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">◈</span><span>Visão geral</span>
+            <span class="adm-nav__icon" aria-hidden="true">🏠</span><span>Visão geral</span>
         </button>
         <button class="adm-nav__item" data-view="agenda" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">▦</span><span>Agenda</span>
+            <span class="adm-nav__icon" aria-hidden="true">📅</span><span>Agenda</span>
         </button>
         <button class="adm-nav__item" data-view="clients" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">☺</span><span>Clientes</span>
+            <span class="adm-nav__icon" aria-hidden="true">👥</span><span>Clientes</span>
         </button>
         <button class="adm-nav__item" data-view="points" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">☯</span><span>Mapa de pontos</span>
+            <span class="adm-nav__icon" aria-hidden="true">🪷</span><span>Mapa de pontos</span>
         </button>
         <button class="adm-nav__item" data-view="finance" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">$</span><span>Financeiro</span>
+            <span class="adm-nav__icon" aria-hidden="true">💰</span><span>Financeiro</span>
         </button>
     </nav>
 

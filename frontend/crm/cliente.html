@@ -8,6 +8,8 @@
     <title>Minha área | Ajna Terapias</title>
     <link rel="icon" href="../img/url_logo.png">
     <link rel="stylesheet" href="../css/pages/admin.css">
+    <script>/* tema escolhido (claro é o padrão) — aplicado antes de desenhar a página */
+        if (localStorage.getItem("ajna-theme") === "dark") document.documentElement.classList.add("theme-dark");</script>
 </head>
 
 <body class="adm adm--client" data-page="patient">
@@ -17,16 +19,16 @@
             <span>Ajna <b>Terapias</b></span>
         </a>
         <button class="adm-nav__item is-active" data-view="home" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">◈</span><span>Início</span>
+            <span class="adm-nav__icon" aria-hidden="true">🏠</span><span>Início</span>
         </button>
         <button class="adm-nav__item" data-view="book" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">＋</span><span>Agendar</span>
+            <span class="adm-nav__icon" aria-hidden="true">🗓️</span><span>Agendar</span>
         </button>
         <button class="adm-nav__item" data-view="appointments" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">▦</span><span>Consultas</span>
+            <span class="adm-nav__icon" aria-hidden="true">📋</span><span>Consultas</span>
         </button>
         <button class="adm-nav__item" data-view="profile" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">☺</span><span>Meus dados</span>
+            <span class="adm-nav__icon" aria-hidden="true">👤</span><span>Meus dados</span>
         </button>
     </nav>
 

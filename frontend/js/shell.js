@@ -40,6 +40,24 @@
   nav.addEventListener("click", (e) => { if (e.target.closest(".adm-nav__item[data-view]")) setOpen(false); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
 
+  // botão de tema no fim do menu (claro por padrão; a escolha fica salva neste navegador)
+  const themeBtn = document.createElement("button");
+  themeBtn.type = "button";
+  themeBtn.className = "adm-theme";
+  const paintTheme = () => {
+    const dark = document.documentElement.classList.contains("theme-dark");
+    themeBtn.innerHTML = `<span aria-hidden="true">${dark ? "🌙" : "☀️"}</span><span>${dark ? "Tema escuro" : "Tema claro"}</span><i class="adm-theme__switch"></i>`;
+    themeBtn.setAttribute("aria-pressed", String(dark));
+    themeBtn.title = dark ? "Voltar para o tema claro" : "Usar o tema escuro";
+  };
+  themeBtn.addEventListener("click", () => {
+    const dark = document.documentElement.classList.toggle("theme-dark");
+    localStorage.setItem("ajna-theme", dark ? "dark" : "light");
+    paintTheme();
+  });
+  paintTheme();
+  nav.append(themeBtn);
+
   // bolinha no ☰ quando há pedidos pendentes (contador da "Visão geral")
   const syncDot = () => {
     const count = $(".adm-nav__count", nav);
@@ -146,6 +164,7 @@
     paintAvatar,
     avatarHtml,
     openPhoto,
+    csrf: () => me.csrf,
     /** Chamado pela página depois de carregar /api/auth/me. */
     setUser(user) {
       me.name = user.name;
