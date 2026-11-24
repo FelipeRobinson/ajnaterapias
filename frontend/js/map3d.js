@@ -1,6 +1,7 @@
 /* Visualizador 3D do mapa de pontos (Three.js).
  * Masculino: BodyParts3D 4.0 (CC BY 4.0) — frontend/models/anatomy/ATRIBUICAO.md
  * Feminino: HuBMAP VH Female v1.5 (CC BY 4.0) — frontend/models/anatomy-f/ATRIBUICAO.md
+ *   (músculos e esqueleto completo do feminino = BodyParts3D adaptado: backend/tools/build_female_layers.py)
  * Usado por admin.js: const viewer = await (await import("./map3d.js")).createViewer(container, opts)
  */
 import * as THREE from "three";
@@ -74,10 +75,13 @@ export async function createViewer(container, opts) {
     const buf = await fetch(BASE + info.file).then((r) => r.arrayBuffer());
     const q = new Uint16Array(buf, 0, info.vertexCount * 3);
     const pos = new Float32Array(info.vertexCount * 3);
+    // camada com limites próprios (ex.: músculos/ossos levados para o corpo feminino) ou os do modelo
+    const lo = info.bounds ? new THREE.Vector3(...info.bounds[0]) : bmin;
+    const sp = info.bounds ? new THREE.Vector3(...info.bounds[1]).sub(lo) : span;
     for (let i = 0; i < pos.length; i += 3) {
-      pos[i] = bmin.x + (q[i] / 65535) * span.x;
-      pos[i + 1] = bmin.y + (q[i + 1] / 65535) * span.y;
-      pos[i + 2] = bmin.z + (q[i + 2] / 65535) * span.z;
+      pos[i] = lo.x + (q[i] / 65535) * sp.x;
+      pos[i + 1] = lo.y + (q[i + 1] / 65535) * sp.y;
+      pos[i + 2] = lo.z + (q[i + 2] / 65535) * sp.z;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));

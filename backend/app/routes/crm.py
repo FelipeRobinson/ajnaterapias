@@ -6,8 +6,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash
 
-from ..calendar_rules import (RECURRENCES, SUNDAY, WEEKDAY_NAMES, closed_weekdays, is_closed,
-                              save_closed_weekdays)
+from ..calendar_rules import OPENING_WINDOWS, RECURRENCES, WEEKDAY_NAMES, closed_weekdays, is_closed
 from ..database import IntegrityError, get_db
 from .finance import apply_package
 from ..security import csrf_required, login_required, roles_required
@@ -286,26 +285,60 @@ def delete_block(block_id):
     return "", 204
 
 
-# ---------------------------------------------------------------- dias de atendimento
+# ---------------------------------------------------------------- horário de atendimento e horários extras
 @crm_bp.get("/calendar-settings")
 @_admin
 def calendar_settings():
-    """Dias da semana sem atendimento. Domingo é fixo; segunda a sábado a administração escolhe."""
-    return jsonify(closed_weekdays=list(closed_weekdays()), weekday_names=WEEKDAY_NAMES, fixed=[SUNDAY],
-                   recurrences=RECURRENCES)
+    """Dias e horários padrão (fixos) e as opções de repetição dos eventos."""
+    closed = closed_weekdays()
+    return jsonify(closed_weekdays=list(closed), weekday_names=WEEKDAY_NAMES,
+                   open_weekdays=[w for w in range(7) if w not in closed],
+                   opening_windows=[list(w) for w in OPENING_WINDOWS], recurrences=RECURRENCES)
 
 
-@crm_bp.put("/calendar-settings")
+@crm_bp.get("/extra-hours")
+@_admin
+def list_extra_hours():
+    start = request.args.get("from") or date.today().isoformat()
+    end = request.args.get("to") or "9999-12-31"
+    if not (_valid_date(start) and (end == "9999-12-31" or _valid_date(end))):
+        return jsonify(error="Período inválido."), 400
+    rows = get_db().execute('SELECT id, date, start, "end" FROM extra_hours WHERE date BETWEEN ? AND ? ORDER BY date, start',
+                            (start, end)).fetchall()
+    return jsonify(items=[dict(r) for r in rows])
+
+
+@crm_bp.post("/extra-hours")
 @_admin
 @csrf_required
-def save_calendar_settings():
-    days = (request.get_json(silent=True) or {}).get("closed_weekdays")
-    if not isinstance(days, list):
-        return jsonify(error="Informe a lista de dias sem atendimento."), 400
+def create_extra_hours():
+    """Abre um horário extra para os clientes agendarem, fora do padrão (9h–11h e 13h–19h).
+    Só de terça a quinta: segunda, sexta, sábado e domingo continuam sem agendamento."""
+    payload = request.get_json(silent=True) or {}
+    day, start, end = payload.get("date"), str(payload.get("start", "")), str(payload.get("end", ""))
+    if not _valid_date(day):
+        return jsonify(error="Escolha a data."), 400
+    if is_closed(date.fromisoformat(day)):
+        return jsonify(error="Horários extras só de terça a quinta. Segunda, sexta, sábado e domingo não têm agendamento."), 400
+    if not (TIME_RE.match(start) and TIME_RE.match(end)) or end <= start:
+        return jsonify(error="Horário inválido: o término precisa ser depois do início."), 400
+    if day < date.today().isoformat():
+        return jsonify(error="Escolha uma data de hoje em diante."), 400
     db = get_db()
-    saved = save_closed_weekdays(db, days)
+    db.execute('INSERT INTO extra_hours (date, start, "end", created_at) VALUES (?, ?, ?, ?)',
+               (day, start, end, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     db.commit()
-    return jsonify(ok=True, closed_weekdays=list(saved))
+    return jsonify(ok=True), 201
+
+
+@crm_bp.delete("/extra-hours/<int:extra_id>")
+@_admin
+@csrf_required
+def delete_extra_hours(extra_id):
+    db = get_db()
+    db.execute("DELETE FROM extra_hours WHERE id = ?", (extra_id,))
+    db.commit()
+    return "", 204
 
 
 # ---------------------------------------------------------------- eventos da clínica (aparecem para todos)

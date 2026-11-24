@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..calendar_rules import OPENING_WINDOWS, closed_weekdays, events_between
+from ..calendar_rules import OPENING_WINDOWS, closed_weekdays, events_between, extra_hours
 from ..database import get_db
 from ..profile_data import PROFILE_FIELDS, clean_profile, load_profile
 from ..security import csrf_required, login_required, roles_required
@@ -51,15 +51,21 @@ def _free_slots(db, day):
     busy += db.execute('SELECT start, "end" FROM schedule_blocks WHERE date = ?', (day.isoformat(),)).fetchall()
     busy = [(_minutes(b["start"]), _minutes(b["end"])) for b in busy]
     now = datetime.now()
-    slots = []
-    for open_, close_ in OPENING_WINDOWS:
+    starts = set()
+    for open_, close_ in [*OPENING_WINDOWS, *extra_hours(db, day)]:  # padrão + horários extras do dia
         t, close = _minutes(open_), _minutes(close_)
         while t + SLOT_MINUTES <= close:
-            end = t + SLOT_MINUTES
-            in_past = day == now.date() and t <= now.hour * 60 + now.minute
-            if not in_past and not any(s < end and e > t for s, e in busy):
-                slots.append({"start": _hm(t), "end": _hm(end)})
+            starts.add(t)
             t += SLOT_MINUTES
+    slots, last_end = [], -1
+    for t in sorted(starts):
+        end = t + SLOT_MINUTES
+        if t < last_end:  # horário extra que se sobrepõe a outro: fica o primeiro
+            continue
+        last_end = end
+        in_past = day == now.date() and t <= now.hour * 60 + now.minute
+        if not in_past and not any(s < end and e > t for s, e in busy):
+            slots.append({"start": _hm(t), "end": _hm(end)})
     return slots
 
 
@@ -119,7 +125,8 @@ def schedule_info():
     return jsonify(
         open_weekdays=[w for w in range(7) if w not in closed],
         # Horário de fechamento de hoje (ou null se fechado): a tela pula o dia se já passou.
-        today_closes=None if date.today().weekday() in closed else OPENING_WINDOWS[-1][1],
+        today_closes=None if date.today().weekday() in closed
+        else max([OPENING_WINDOWS[-1][1], *(e for _s, e in extra_hours(get_db(), date.today()))]),
         opening_windows=[list(w) for w in OPENING_WINDOWS],
         days_ahead=DAYS_AHEAD,
         slot_minutes=SLOT_MINUTES,

@@ -211,22 +211,25 @@
     `<div class="ag-event ${big ? "ag-event--big" : ""}" title="${esc(ev.description)}">${esc(ev.icon)} <b>${esc(ev.title)}</b>${esc(evTime(ev))}${big && ev.description ? `<span>${esc(ev.description)}</span>` : ""}</div>`;
   const bdayTag = (b, big = false) =>
     `<button class="ag-bday ${big ? "ag-bday--big" : ""}" data-open-patient="${b.patient_id}" type="button" title="Aniversário de ${esc(b.name)} (${b.age} anos) · abrir ficha">🎂 <b>${esc(big ? b.name : b.name.split(" ")[0])}</b>${big ? ` faz ${b.age} anos` : ""}</button>`;
-  const closedTag = '<div class="ag-closed">🚫 Sem atendimento</div>';
+  const closedTag = '<div class="ag-closed">🚫 Sem atendimento</div>'; // só no domingo
+  const isSunday = (d) => wd(d) === 6;
+  const extraTag = (x) => `<div class="ag-extra" title="Horário extra aberto para os clientes agendarem">🕐 Horário extra ${esc(x.start)}–${esc(x.end)}</div>`;
 
   async function fetchRange(start, end) {
     const q = `from=${iso(start)}&to=${iso(end)}`;
-    const [{ items }, { items: blocks }, ev, bd] = await Promise.all([
+    const [{ items }, { items: blocks }, ev, bd, ex] = await Promise.all([
       api(`/api/admin/appointments?${q}`), api(`/api/admin/blocks?${q}`), api(`/api/patient/events?${q}`),
-      api(`/api/admin/birthdays?${q}`).catch(() => ({ items: [] }))]);
+      api(`/api/admin/birthdays?${q}`).catch(() => ({ items: [] })),
+      api(`/api/admin/extra-hours?${q}`).catch(() => ({ items: [] }))]);
     state.closedWeekdays = ev.closed_weekdays;
-    return { items, blocks, events: ev.items, birthdays: bd.items };
+    return { items, blocks, events: ev.items, birthdays: bd.items, extras: ex.items };
   }
 
   async function loadAgenda() {
     const [start, end] = agRange();
     $("#week-label").textContent = agLabel(start, end);
     $$("[data-ag-view]").forEach((b) => b.classList.toggle("is-active", b.dataset.agView === state.agView));
-    const { items, blocks, events, birthdays } = await fetchRange(start, end);
+    const { items, blocks, events, birthdays, extras } = await fetchRange(start, end);
     state.weekItems = items;
     const today = iso(new Date());
     const box = $("#week-days");
@@ -234,11 +237,14 @@
     const dayData = (day) => {
       const key = iso(day);
       const blk = blocks.filter((b) => b.date === key);
-      const closed = isClosedDay(day);
+      // "Sem atendimento" (e as listras) só no domingo; seg, sex e sáb ficam limpos, mas sem "Livre"
+      const closed = isSunday(day);
+      const shut = isClosedDay(day);
+      const xs = extras.filter((x) => x.date === key);
       const evs = events.filter((e) => e.date === key);
       const bds = birthdays.filter((b) => b.date === key);
       // dia de evento (Reiki) não fica listrado de vermelho, mesmo sendo dia sem atendimento
-      return { key, closed, list: items.filter((a) => a.date === key), blk, evs, bds,
+      return { key, closed, shut, xs, list: items.filter((a) => a.date === key), blk, evs, bds,
         off: (closed && !evs.length) || blk.some(fullDay) };
     };
     const openBtn = (key, label) => `<button class="ag-open" data-day-open="${key}" type="button" title="Abrir o dia">${label}</button>`;
@@ -246,7 +252,7 @@
     if (state.agView === "list") {
       box.innerHTML = Array.from({ length: 7 }, (_, i) => {
         const day = addDays(start, i);
-        const { key, list, blk, evs, bds, closed, off } = dayData(day);
+        const { key, list, blk, evs, bds, closed, shut, xs, off } = dayData(day);
         const rows = byTime([...blk.map((b) => ({ t: b.start, h: blockRow(b) })), ...list.map((a) => ({ t: a.start, h: appointmentRow(a) }))]);
         return `
         <section class="adm-card adm-day ${key === today ? "adm-day--today" : ""} ${off ? "ag-off" : ""}">
@@ -256,7 +262,7 @@
             <button class="adm-btn adm-btn--link" data-block-on="${key}" type="button" style="margin-left:auto">⛔ Indisponível</button>
             <button class="adm-btn adm-btn--link" data-new-on="${key}" type="button">＋ Agendar</button>
           </div>
-          <div class="adm-list">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${bds.map((b) => bdayTag(b, true)).join("")}${rows || (closed ? "" : '<p class="adm-muted">Livre</p>')}</div>
+          <div class="adm-list">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${bds.map((b) => bdayTag(b, true)).join("")}${xs.map(extraTag).join("")}${rows || (shut ? "" : '<p class="adm-muted">Livre</p>')}</div>
         </section>`;
       }).join("");
       return;
@@ -265,14 +271,14 @@
     if (state.agView === "week") {
       box.innerHTML = `<div class="ag-weekgrid">${Array.from({ length: 7 }, (_, i) => {
         const day = addDays(start, i);
-        const { key, list, blk, evs, bds, closed, off } = dayData(day);
+        const { key, list, blk, evs, bds, closed, shut, xs, off } = dayData(day);
         const rows = byTime([...blk.map((b) => ({ t: b.start, h: blockRow(b, true) })), ...list.map((a) => ({ t: a.start, h: chip(a) }))]);
         return `<section class="ag-col ${key === today ? "is-today" : ""} ${off ? "ag-off" : ""}">
           <header data-day-open="${key}" title="Abrir o dia"><span>${WEEKDAYS[i]}</span><b>${day.getDate()}</b><small>${fmt(day, { month: "short", year: "numeric" })}</small></header>
-          <div class="ag-col__items">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${bds.map((b) => bdayTag(b)).join("")}${rows || (closed ? "" : '<p class="adm-muted">Livre</p>')}</div>
+          <div class="ag-col__items">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${bds.map((b) => bdayTag(b)).join("")}${xs.map(extraTag).join("")}${rows || (shut ? "" : '<p class="adm-muted">Livre</p>')}</div>
           <footer>
             <button class="adm-btn adm-btn--sm" data-day-open="${key}" type="button" title="Abrir o dia">🔍</button>
-            <button class="adm-btn adm-btn--sm" data-new-on="${key}" type="button" title="Agendar">＋</button>
+            <button class="adm-btn adm-btn--sm adm-btn--icon ico-plus" data-new-on="${key}" type="button" title="Agendar" aria-label="Agendar"></button>
             <button class="adm-btn adm-btn--sm" data-block-on="${key}" type="button" title="Marcar indisponível">⛔</button>
           </footer>
         </section>`;
@@ -286,7 +292,7 @@
       ${WEEKDAYS.map((w) => `<div class="ag-month__wd">${w}</div>`).join("")}
       ${Array.from({ length: 42 }, (_, i) => {
         const day = addDays(start, i);
-        const { key, list, blk, evs, bds, closed, off } = dayData(day);
+        const { key, list, blk, evs, bds, closed, xs, off } = dayData(day);
         const active = list.filter((a) => a.status !== "cancelled");
         const offLabel = closed && evs.length ? "" : closed ? '<span class="ag-cell__off ag-cell__off--closed">🚫 Sem atendimento</span>'
           : off ? '<span class="ag-cell__off">⛔ Indisponível</span>'
@@ -295,11 +301,12 @@
           <span class="ag-cell__num">${day.getDate()}</span>
           ${offLabel}
           ${evs.map((e) => `<span class="ag-cell__event" title="${esc(e.title)}">${esc(e.icon)} ${esc(e.title)}</span>`).join("")}
+          ${xs.map((x) => `<span class="ag-cell__extra" title="Horário extra">🕐 ${esc(x.start)}–${esc(x.end)}</span>`).join("")}
           ${bds.map((b) => `<span class="ag-cell__bday" title="Aniversário de ${esc(b.name)} (${b.age} anos)">🎂 ${esc(b.name.split(" ")[0])}</span>`).join("")}
           <div class="ag-cell__items">${active.slice(0, 3).map(chip).join("")}${active.length > 3 ? `<span class="ag-more">+${active.length - 3} mais</span>` : ""}</div>
           ${active.length ? `<span class="ag-cell__count">${active.length}</span>` : ""}
           <div class="ag-cell__act">
-            <button data-new-on="${key}" type="button" title="Agendar">＋</button>
+            <button class="ico-plus" data-new-on="${key}" type="button" title="Agendar" aria-label="Agendar"></button>
             <button data-block-on="${key}" type="button" title="Marcar indisponível">⛔</button>
           </div>
         </div>`;
@@ -314,9 +321,9 @@
   async function openDay(key) {
     state.dayOpen = key;
     const day = fromIso(key);
-    const { items, blocks, events, birthdays } = await fetchRange(day, day);
+    const { items, blocks, events, birthdays, extras } = await fetchRange(day, day);
     state.dayItems = items;
-    const closed = isClosedDay(day);
+    const closed = isSunday(day);
     const active = items.filter((a) => a.status !== "cancelled");
     $("#day-title").textContent = cap(fmt(day, { weekday: "long", day: "numeric", month: "long", year: "numeric" }));
     const counts = ["requested", "scheduled", "done", "cancelled"].map((s) => [s, items.filter((a) => a.status === s).length]).filter(([, n]) => n);
@@ -359,7 +366,8 @@
           <div class="dv-lane">${blockEls}${apptEls}${nowLine}</div>
         </div></div>
         <aside class="dv-side">
-          ${closed ? '<div class="ag-closed">🚫 Dia sem atendimento. Dá para agendar só como exceção.</div>' : ""}
+          ${closed ? '<div class="ag-closed">🚫 Sem atendimento. Dá para agendar só como exceção.</div>' : ""}
+          ${extras.map(extraTag).join("")}
           ${events.map((e) => eventTag(e, true)).join("")}
           ${birthdays.map((b) => bdayTag(b, true)).join("")}
           <h3 class="mp-subtitle">Sessões do dia</h3>
@@ -1535,7 +1543,7 @@
           <p class="adm-muted">${esc(mer?.name || "")}${p.intl_code ? ` · ${esc(p.intl_code)}` : ""}${p.custom ? " · ponto extra" : ""}</p>
           <p class="mp-region">📍 ${esc(bodyRegion(p))} <span>· ${p.view === "ear" ? "auriculoterapia (vale para as duas orelhas)" : `vista de ${p.view === "front" ? "frente" : "costas"}`}${isBilateral(p) ? " · nos dois lados" : ""}</span></p>
         </div>
-        <button class="adm-btn adm-btn--icon mp-close" data-mp-close type="button" aria-label="Fechar">×</button>
+        <button class="adm-btn adm-btn--icon mp-close ico-x" data-mp-close type="button" aria-label="Fechar"></button>
       </div>
       ${!p.custom ? `<div class="mp-nav">
         <button class="adm-btn adm-btn--sm" data-select="${esc(siblings[idx - 1]?.code || "")}" ${idx > 0 ? "" : "disabled"} type="button">‹ ${esc(siblings[idx - 1]?.code || "")}</button>
@@ -1723,7 +1731,7 @@
         $$("[data-mp-layer]").forEach((x) => x.classList.toggle("is-active", x.dataset.mpLayer === "skin"));
         $("#mp-skin-opacity").value = 100;
       }
-      toast(b.dataset.mpBody === "f" ? "Corpo feminino (pele e esqueleto parcial, sem músculos)." : "Corpo masculino.");
+      toast(b.dataset.mpBody === "f" ? "Corpo feminino." : "Corpo masculino.");
     }));
     $$("[data-mp-layer]").forEach((b) => b.addEventListener("click", () => {
       mp.layer = b.dataset.mpLayer;
@@ -1956,8 +1964,8 @@
     const views = DOLL_VIEWS.filter(([v]) => editable || v !== "ear" || has("ear"));
     const tools = () => (editable ? `
         <div class="doll-zoom" role="group" aria-label="Zoom">
-          <button type="button" data-doll-zoom="in" title="Aproximar">＋</button>
-          <button type="button" data-doll-zoom="out" title="Afastar">−</button>
+          <button class="ico-plus" type="button" data-doll-zoom="in" title="Aproximar" aria-label="Aproximar"></button>
+          <button class="ico-minus" type="button" data-doll-zoom="out" title="Afastar" aria-label="Afastar"></button>
           <button type="button" data-doll-zoom="reset" title="Ver inteiro">⟲</button>
           <button type="button" data-doll-zoom="big" title="Ampliar / reduzir a figura">⛶</button>
         </div>` : "");

@@ -17,7 +17,7 @@ def test_default_categories_are_textbook_classifications():
 def test_everything_loads_seeded_data(tmp_path):
     c, h = admin_client(tmp_path)
     d = c.get("/api/admin/theory").get_json()
-    assert len(d["points"]) == 361 + 79
+    assert len(d["points"]) == 361 + 48 + 79
     assert len([i for i in d["items"] if i["kind"] == "syndrome"]) == 36
     assert "Yuan (fonte)" in d["categories"]
     p9 = next(p for p in d["points"] if p["code"] == "LU9")

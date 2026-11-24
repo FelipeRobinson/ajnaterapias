@@ -58,22 +58,34 @@ def test_monday_and_friday_are_closed(tmp_path):
     assert c.patch(f"/api/admin/appointments/{appt['id']}", headers=h, json={"date": _next(1)}).status_code == 200
 
 
-def test_admin_edits_weekdays_but_sunday_is_fixed(tmp_path):
+def test_extra_hours_only_tuesday_to_thursday(tmp_path):
     c, h = admin_client(tmp_path)
-    del c.application.config["CLOSED_WEEKDAYS"]  # usa o que está salvo
-    assert c.get("/api/admin/calendar-settings").get_json()["closed_weekdays"] == [0, 4, 5, 6]  # padrão
-    r = c.put("/api/admin/calendar-settings", headers=h, json={"closed_weekdays": [0, 2]})
-    assert r.status_code == 200 and r.get_json()["closed_weekdays"] == [0, 2, 6]  # domingo sempre fechado
-    r = c.put("/api/admin/calendar-settings", headers=h, json={"closed_weekdays": []})
-    assert r.get_json()["closed_weekdays"] == [6]
+    c.application.config["CLOSED_WEEKDAYS"] = (0, 4, 5, 6)
+    cfg = c.get("/api/admin/calendar-settings").get_json()
+    assert cfg["closed_weekdays"] == [0, 4, 5, 6] and cfg["open_weekdays"] == [1, 2, 3]
+    assert c.put("/api/admin/calendar-settings", headers=h, json={"closed_weekdays": []}).status_code == 405  # dias fixos
+    tue = _next(1)
+    # segunda, sexta, sábado e domingo: não dá para abrir horário extra
+    for wd in (0, 4, 5, 6):
+        r = c.post("/api/admin/extra-hours", headers=h, json={"date": _next(wd), "start": "19:00", "end": "21:00"})
+        assert r.status_code == 400
+    assert c.post("/api/admin/extra-hours", headers=h, json={"date": tue, "start": "21:00", "end": "19:00"}).status_code == 400
+    assert c.post("/api/admin/extra-hours", headers=h, json={"date": tue, "start": "19:00", "end": "21:00"}).status_code == 201
+    assert c.post("/api/admin/extra-hours", headers=h, json={"date": tue, "start": "11:00", "end": "12:00"}).status_code == 201
     pid = new_patient(c, h)
     cli = c.application.test_client()
     cli.post("/api/auth/login", json={"email": "ana@x.com", "password": "12345678"})
-    assert cli.get(f"/api/patient/slots?date={_next(6)}").get_json()["slots"] == []
-    assert cli.get(f"/api/patient/slots?date={_next(0)}").get_json()["slots"]  # segunda agora abre
-    assert cli.get("/api/patient/schedule-info").get_json()["open_weekdays"] == [0, 1, 2, 3, 4, 5]
-    assert c.put("/api/admin/calendar-settings", json={"closed_weekdays": []}).status_code == 403  # sem CSRF
-    assert cli.put("/api/admin/calendar-settings", json={"closed_weekdays": []}).status_code in (401, 403)
+    starts = [s["start"] for s in cli.get(f"/api/patient/slots?date={tue}").get_json()["slots"]]
+    assert starts == ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"]
+    # o horário extra aparece só naquele dia
+    other = (date.fromisoformat(tue) + timedelta(days=7)).isoformat()
+    assert "19:00" not in [s["start"] for s in cli.get(f"/api/patient/slots?date={other}").get_json()["slots"]]
+    items = c.get(f"/api/admin/extra-hours?from={tue}&to={tue}").get_json()["items"]
+    assert [(x["start"], x["end"]) for x in items] == [("11:00", "12:00"), ("19:00", "21:00")]
+    assert c.delete(f"/api/admin/extra-hours/{items[1]['id']}", headers=h).status_code == 204
+    assert "19:00" not in [s["start"] for s in cli.get(f"/api/patient/slots?date={tue}").get_json()["slots"]]
+    assert cli.post("/api/admin/extra-hours", json={"date": tue, "start": "19:00", "end": "21:00"}).status_code in (401, 403)
+    assert pid
 
 
 def test_events_crud(tmp_path):

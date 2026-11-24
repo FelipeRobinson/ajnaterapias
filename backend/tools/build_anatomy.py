@@ -144,7 +144,7 @@ for Y in ys:
 ARM_Y_TIP = lowest_arm
 print("braço 3D de", ARM_Y_TOP, "até", round(ARM_Y_TIP, 3))
 
-ARM_PTS = {("P", None), ("IG", range(1, 16)), ("C", None), ("ID", range(1, 10)), ("PC", range(2, 10)), ("TA", range(1, 14))}
+ARM_PTS = {("LU", None), ("LI", range(1, 16)), ("HT", None), ("SI", range(1, 10)), ("PC", range(2, 10)), ("SJ", range(1, 14))}
 
 
 def is_arm(code_m, n, x, y):
@@ -193,7 +193,7 @@ def place(x, y, view, arm):
     return [round(float(v), 4) for v in (*pos, *nrm)]
 
 
-bilateral = {m[0]: m[5] for m in MERIDIANS}
+bilateral = {_mod.PT_TO_CN[m[0]]: m[5] for m in MERIDIANS}
 points3d = {}
 for pt in all_points():
     m, n, x, y, view = pt["meridian"], pt["number"], pt["x"], pt["y"], pt["view"]

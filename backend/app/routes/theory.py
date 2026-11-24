@@ -12,6 +12,7 @@ from flask import Blueprint, jsonify, request
 from ..database import get_db
 from ..security import csrf_required, login_required, roles_required
 from ..theory_data import SYNDROMES, TONGUE, default_categories
+from ..acupoints_data import sort_key
 from .acupoints import known_codes
 
 theory_bp = Blueprint("theory", __name__)
@@ -105,6 +106,7 @@ def everything():
         d = dict(r)
         d["details"] = json.loads(r["details"]) if r["details"] else {}
         points.append(d)
+    points.sort(key=sort_key)
     items = []
     for r in db.execute("SELECT * FROM theory_items ORDER BY kind, group_name, name").fetchall():
         d = dict(r)

@@ -162,6 +162,14 @@ CREATE TABLE IF NOT EXISTS theory_items (
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
+-- Horários extras abertos pela administração fora do horário padrão (sempre de terça a quinta).
+CREATE TABLE IF NOT EXISTS extra_hours (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    date        TEXT NOT NULL,
+    start       TEXT NOT NULL,
+    "end"       TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
 -- Eventos da clínica para todos (ex.: Reiki voluntário). recurrence: once, weekly, monthly, last_weekday, yearly.
 CREATE TABLE IF NOT EXISTS events (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -332,6 +340,14 @@ CREATE TABLE IF NOT EXISTS theory_items (
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
+-- Horários extras abertos pela administração fora do horário padrão (sempre de terça a quinta).
+CREATE TABLE IF NOT EXISTS extra_hours (
+    id          SERIAL PRIMARY KEY,
+    date        TEXT NOT NULL,
+    start       TEXT NOT NULL,
+    "end"       TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
 -- Eventos da clínica para todos (ex.: Reiki voluntário). recurrence: once, weekly, monthly, last_weekday, yearly.
 CREATE TABLE IF NOT EXISTS events (
     id           SERIAL PRIMARY KEY,
@@ -492,15 +508,16 @@ def primary_admin(db):
 def _seed_acupoints(db):
     """Grava os pontos padrão que ainda não existem (361 clássicos + auriculoterapia).
     Pontos já existentes (e as edições da clínica) nunca são alterados."""
-    from .acupoints_data import all_points, auricular_points
+    from .acupoints_data import all_points, auricular_points, extra_points
     existing = {r["code"] for r in db.execute("SELECT code FROM acupoints").fetchall()}
-    for pt in all_points() + auricular_points():
+    for pt in all_points() + extra_points() + auricular_points():
         if pt["code"] in existing:
             continue
         db.execute(
-            """INSERT INTO acupoints (code, meridian, number, intl_code, pinyin, view, x, y, custom)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
-            (pt["code"], pt["meridian"], pt["number"], pt["intl_code"], pt["pinyin"], pt["view"], pt["x"], pt["y"]),
+            """INSERT INTO acupoints (code, meridian, number, intl_code, pinyin, name_pt, view, x, y, custom)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+            (pt["code"], pt["meridian"], pt["number"], pt["intl_code"], pt["pinyin"], pt.get("name_pt"),
+             pt["view"], pt["x"], pt["y"]),
         )
 
 

@@ -449,7 +449,7 @@
   const methodOptions = (sel = "pix", empty = false) => (empty ? '<option value="">—</option>' : "") +
     Object.entries(st.opts.methods).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(v)}</option>`).join("");
   const serviceOptions = (sel, empty = "Escolha…") => `<option value="">${empty}</option>` +
-    st.services.filter((s) => s.active || s.id == sel).map((s) => `<option value="${s.id}" data-price="${s.price_cents}" ${s.id == sel ? "selected" : ""}>${s.social ? "🤝 " : ""}${esc(s.name)}${s.price_cents ? ` — ${brl(s.price_cents)}` : ""}</option>`).join("");
+    st.services.filter((s) => s.active || s.id == sel).map((s) => `<option value="${s.id}" data-price="${s.price_cents}" ${s.id == sel ? "selected" : ""}>${s.social ? "🤝 " : ""}${esc(s.name)}</option>`).join("");
 
   function openForm(title, fields, onSave) {
     const m = modal();
@@ -496,9 +496,10 @@
   async function openPackage() {
     openForm("📦 Novo pacote de sessões", `
       <label>Cliente<select name="patient_user_id" required>${await patientsOptions()}</select></label>
-      <label>Terapia<select name="service_id">${serviceOptions("", "Qualquer terapia")}</select></label>
-      <div class="adm-form__row"><label>Sessões<input name="sessions_total" type="number" min="1" max="200" value="10" required></label>
+      <label>Terapia<select name="service_id" data-fin-pkg>${serviceOptions("", "Qualquer terapia")}</select></label>
+      <div class="adm-form__row"><label>Sessões<input name="sessions_total" type="number" min="1" max="200" value="10" required data-fin-pkg></label>
         ${money("price", "Valor do pacote", "")}</div>
+      <p class="adm-muted fin-help" data-fin-pkg-hint hidden></p>
       <label>Já recebeu?<select name="paid_method"><option value="">Ainda não (registrar depois)</option>${methodOptions("")}</select></label>
       <label>Observação<input name="notes" maxlength="200"></label>`, async (d) => {
       const price = toCents(d.price);
@@ -590,6 +591,26 @@
     const price = Number(sel.selectedOptions[0]?.dataset.price || 0);
     const input = sel.form?.elements.price;
     if (input && price) input.value = centsToInput(price);
+  });
+
+  // Pacote: terapia × sessões -> sugere o valor. Dá para editar (desconto, preço especial);
+  // depois de editado à mão, trocar a terapia ou o nº de sessões não apaga o valor digitado.
+  function suggestPackage(f) {
+    const sel = f.elements.service_id;
+    const unit = Number(sel.selectedOptions[0]?.dataset.price || 0);
+    const n = Math.max(0, Number(f.elements.sessions_total.value) || 0);
+    const hint = $("[data-fin-pkg-hint]", f);
+    if (!unit || !n) { if (hint) hint.hidden = true; return; }
+    if (!f.elements.price.dataset.edited) f.elements.price.value = centsToInput(unit * n);
+    if (hint) {
+      hint.hidden = false;
+      hint.innerHTML = `Sugestão: ${n} × ${brl(unit)} = <b>${brl(unit * n)}</b>. Pode mudar o valor (desconto, preço especial).`;
+    }
+  }
+  document.addEventListener("change", (e) => { if (e.target.matches?.("[data-fin-pkg]")) suggestPackage(e.target.form); });
+  document.addEventListener("input", (e) => {
+    if (e.target.matches?.("input[data-fin-pkg]")) suggestPackage(e.target.form);
+    else if (e.target.name === "price" && e.target.form?.elements.sessions_total) e.target.dataset.edited = e.target.value ? "1" : "";
   });
 
   const form = () => $("#fin-form");

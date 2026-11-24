@@ -35,11 +35,12 @@ TABLES = {
     "theory_items": ["id", "kind", "name", "group_name", "data", "points", "created_at", "updated_at"],
     "events": ["id", "title", "icon", "description", "date", "recurrence", "until", "start_time", "end_time",
                "created_at"],
-    "settings": ["key", "value"],  # administradora principal e dias sem atendimento
+    "extra_hours": ["id", "date", "start", '"end"', "created_at"],
+    "settings": ["key", "value"],  # administradora principal
 }
 ORDER = {"acupoints": "code", "settings": "key"}
 HAS_ID = {"users", "appointments", "schedule_blocks", "services", "packages", "payments", "expenses", "medical_records",
-          "session_protocols", "theory_items", "events"}
+          "session_protocols", "theory_items", "events", "extra_hours"}
 
 simular = "--simular" in sys.argv
 app = create_app({"INIT_DB": False})  # não conecta em nada até a hora de migrar

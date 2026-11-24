@@ -24,7 +24,7 @@ def test_361_points_with_correct_counts_and_names():
 def test_list_edit_and_reset(tmp_path):
     c, h = admin_client(tmp_path)
     data = c.get("/api/admin/acupoints").get_json()
-    assert len(data["points"]) == 361 + 79 and len(data["meridians"]) == 16
+    assert len(data["points"]) == 361 + 48 + 79 and len(data["meridians"]) == 17
     ear = [p for p in data["points"] if p["meridian"] == "OR"]
     assert len(ear) == 79 and all(p["view"] == "ear" for p in ear)
     assert next(p for p in ear if p["code"] == "OR-TF4")["pinyin"] == "Shenmen"
@@ -41,11 +41,11 @@ def test_list_edit_and_reset(tmp_path):
 
 def test_custom_point(tmp_path):
     c, h = admin_client(tmp_path)
-    r = c.post("/api/admin/acupoints", headers=h, json={"code": "ex-hn3", "pinyin": "Yintang", "view": "front"})
-    assert r.status_code == 201 and r.get_json()["code"] == "EX-HN3"
-    assert c.post("/api/admin/acupoints", headers=h, json={"code": "EX-HN3", "pinyin": "x"}).status_code == 409
-    assert len(c.get("/api/admin/acupoints").get_json()["points"]) == 361 + 79 + 1
-    assert c.delete("/api/admin/acupoints/EX-HN3", headers=h).status_code == 204
+    r = c.post("/api/admin/acupoints", headers=h, json={"code": "ex-cli1", "pinyin": "Ponto da clínica", "view": "front"})
+    assert r.status_code == 201 and r.get_json()["code"] == "EX-CLI1"
+    assert c.post("/api/admin/acupoints", headers=h, json={"code": "EX-CLI1", "pinyin": "x"}).status_code == 409
+    assert len(c.get("/api/admin/acupoints").get_json()["points"]) == 361 + 48 + 79 + 1
+    assert c.delete("/api/admin/acupoints/EX-CLI1", headers=h).status_code == 204
 
 
 def test_points_in_protocol_and_usage(tmp_path):
@@ -117,3 +117,24 @@ def test_old_brazilian_codes_are_migrated_to_chinese(tmp_path):
     assert "VB20" not in pts and pts["GB20"]["location"] == "Minha nota" and pts["GB20"]["meridian"] == "GB"
     combo = next(i for i in c.get("/api/admin/theory").get_json()["items"] if i["name"] == "Teste")
     assert combo["points"] == ["GB20", "LI4", "OR-TF4"]
+
+
+def test_who_extra_points(tmp_path):
+    """Os 48 pontos extras da OMS vêm prontos, com 2D, 3D (nos dois corpos) e não podem ser excluídos."""
+    import json
+    from pathlib import Path
+    from app.acupoints_data import extra_points
+    ex = extra_points()
+    assert len(ex) == 48 and len({p["code"] for p in ex}) == 48
+    groups = {g: sum(p["code"].startswith(g + "-") or p["code"].startswith(g) and p["code"][len(g)].isdigit() for p in ex)
+              for g in ("EX-HN", "EX-CA", "EX-B", "EX-UE", "EX-LE")}
+    assert groups == {"EX-HN": 15, "EX-CA": 1, "EX-B": 9, "EX-UE": 11, "EX-LE": 12}
+    models = Path(__file__).resolve().parents[2] / "frontend" / "models"
+    for folder in ("anatomy", "anatomy-f"):
+        d3 = json.loads((models / folder / "acupoints3d.json").read_text(encoding="utf-8"))
+        assert all(p["code"] in d3 for p in ex)
+    c, h = admin_client(tmp_path)
+    pts = {p["code"]: p for p in c.get("/api/admin/acupoints").get_json()["points"]}
+    assert pts["EX-HN3"]["pinyin"] == "Yintang" and pts["EX-HN3"]["meridian"] == "EXT"
+    assert pts["EX-B2"]["name_pt"].startswith("Ao Lado da Coluna")
+    assert c.delete("/api/admin/acupoints/EX-HN3", headers=h).status_code == 400

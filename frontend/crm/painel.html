@@ -90,9 +90,9 @@
         <section class="adm-view" id="view-agenda" hidden>
             <div class="adm-toolbar">
                 <div class="adm-week">
-                    <button class="adm-btn adm-btn--icon" id="week-prev" type="button" aria-label="Anterior">‹</button>
+                    <button class="adm-btn adm-btn--icon ico-prev" id="week-prev" type="button" aria-label="Anterior"></button>
                     <strong id="week-label">—</strong>
-                    <button class="adm-btn adm-btn--icon" id="week-next" type="button" aria-label="Próximo">›</button>
+                    <button class="adm-btn adm-btn--icon ico-next" id="week-next" type="button" aria-label="Próximo"></button>
                     <button class="adm-btn adm-btn--ghost" id="week-today" type="button">Hoje</button>
                 </div>
                 <div class="cli-tabs ag-views" role="tablist" aria-label="Visualização da agenda">
@@ -100,7 +100,7 @@
                     <button class="cli-tab" data-ag-view="week" type="button">▥ Semana</button>
                     <button class="cli-tab" data-ag-view="month" type="button">▦ Mês</button>
                 </div>
-                <button class="adm-btn" id="ag-settings-btn" type="button">⚙️ Dias e eventos</button>
+                <button class="adm-btn" id="ag-settings-btn" type="button">⚙️ Horários e eventos</button>
                 <button class="adm-btn ag-block-btn" data-block-on="" type="button">⛔ Marcar indisponível</button>
                 <button class="adm-btn adm-btn--primary" data-action="new-appointment" type="button">＋ Nova sessão</button>
             </div>
@@ -150,9 +150,9 @@
                     <button class="cli-tab" data-fin-tab="report" type="button">📄 Relatórios</button>
                 </div>
                 <div class="adm-week" id="fin-period">
-                    <button class="adm-btn adm-btn--icon" data-fin-step="-1" type="button" aria-label="Anterior">‹</button>
+                    <button class="adm-btn adm-btn--icon ico-prev" data-fin-step="-1" type="button" aria-label="Anterior"></button>
                     <strong id="fin-label">—</strong>
-                    <button class="adm-btn adm-btn--icon" data-fin-step="1" type="button" aria-label="Próximo">›</button>
+                    <button class="adm-btn adm-btn--icon ico-next" data-fin-step="1" type="button" aria-label="Próximo"></button>
                 </div>
             </div>
             <div id="fin-body" class="fin-body"></div>
@@ -180,8 +180,8 @@
                                placeholder="Buscar: GB20, Hegu, ST36…" aria-label="Buscar ponto">
                         <button class="adm-btn adm-btn--ghost adm-btn--sm mp-fs" data-mp-fullscreen type="button" title="Tela cheia">⛶ Tela cheia</button>
                         <div class="mp-zoom">
-                            <button class="adm-btn adm-btn--icon" data-mp-zoom="out" type="button" aria-label="Diminuir">−</button>
-                            <button class="adm-btn adm-btn--icon" data-mp-zoom="in" type="button" aria-label="Aumentar">+</button>
+                            <button class="adm-btn adm-btn--icon ico-minus" data-mp-zoom="out" type="button" aria-label="Diminuir"></button>
+                            <button class="adm-btn adm-btn--icon ico-plus" data-mp-zoom="in" type="button" aria-label="Aumentar"></button>
                             <button class="adm-btn adm-btn--ghost adm-btn--sm" data-mp-zoom="reset" type="button">Corpo todo</button>
                         </div>
                     </div>
@@ -223,7 +223,7 @@
                     </div>
                     <p class="adm-muted mp-disclaimer">Posições aproximadas para orientação visual — confira sempre pela localização anatômica e corrija quando precisar.
                         <span class="mp-only-3d" hidden>Modelos 3D: BodyParts3D 4.0 © DBCLS (masculino) e HuBMAP VH Female v1.5 — K. Browne &amp; H. Schlehlein (feminino),
-                        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (adaptados). O corpo feminino não tem músculos e tem esqueleto parcial.</span></p>
+                        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (adaptados). No corpo feminino, músculos e ossos são os do modelo masculino ajustados ao corpo dela.</span></p>
                 </div>
                 <aside class="adm-card mp-panel" id="mp-panel"></aside>
             </div>
@@ -262,17 +262,17 @@
     <dialog class="adm-modal adm-modal--wide day-modal" id="day-modal">
         <div class="dm">
             <div class="dm__head">
-                <button class="adm-btn adm-btn--icon" id="day-prev" type="button" aria-label="Dia anterior">‹</button>
+                <button class="adm-btn adm-btn--icon ico-prev" id="day-prev" type="button" aria-label="Dia anterior"></button>
                 <div class="dm__title">
                     <p class="adm-eyebrow">Visão do dia</p>
                     <h2 id="day-title">—</h2>
                     <p class="dm__sub" id="day-sub"></p>
                 </div>
-                <button class="adm-btn adm-btn--icon" id="day-next" type="button" aria-label="Próximo dia">›</button>
+                <button class="adm-btn adm-btn--icon ico-next" id="day-next" type="button" aria-label="Próximo dia"></button>
                 <div class="dm__actions">
                     <button class="adm-btn" id="day-block" type="button">⛔ Indisponível</button>
                     <button class="adm-btn adm-btn--primary" id="day-new" type="button">＋ Agendar</button>
-                    <button class="adm-btn adm-btn--icon" id="day-close" type="button" aria-label="Fechar">×</button>
+                    <button class="adm-btn adm-btn--icon ico-x" id="day-close" type="button" aria-label="Fechar"></button>
                 </div>
             </div>
             <div id="day-body"></div>
@@ -313,15 +313,20 @@
     <dialog class="adm-modal ag-set-modal" id="ag-settings-modal">
         <div class="adm-form">
             <div class="ag-set__head">
-                <h2>⚙️ Dias de atendimento e eventos</h2>
+                <h2>⚙️ Horários extras e eventos</h2>
                 <button class="adm-btn adm-btn--ghost adm-btn--sm" type="button" data-ags-close>✕ Fechar</button>
             </div>
             <section class="ag-set__sec">
-                <h3 class="mp-subtitle">📆 Dias com atendimento</h3>
-                <p class="adm-muted">Marque os dias em que a clínica atende. Horários que o cliente pode agendar: <b>9h às 11h</b> e <b>13h às 19h</b>. Domingo é sempre sem atendimento.</p>
-                <div class="ag-set__days" id="ags-days"></div>
-                <p class="adm-form__error" role="alert" id="ags-days-error"></p>
-                <div class="adm-form__actions"><button class="adm-btn adm-btn--primary" id="ags-days-save" type="button">Salvar dias</button></div>
+                <h3 class="mp-subtitle">🕐 Horários extras</h3>
+                <p class="adm-muted">Atendimento de <b>terça a quinta</b>, das <b>9h às 11h</b> e das <b>13h às 19h</b>. Para atender fora desse horário num dia específico, abra um horário extra: ele aparece para os clientes agendarem. Segunda, sexta, sábado e domingo não têm agendamento.</p>
+                <form class="ag-set__form" id="ags-extra-form" novalidate>
+                    <label>Dia<input name="date" type="date" required></label>
+                    <label>Das<input name="start" type="time" step="300" value="19:00" required></label>
+                    <label>Até<input name="end" type="time" step="300" value="21:00" required></label>
+                    <button class="adm-btn adm-btn--primary" type="submit">＋ Abrir horário</button>
+                </form>
+                <p class="adm-form__error" role="alert" id="ags-extra-error"></p>
+                <div class="adm-list" id="ags-extras"></div>
             </section>
             <section class="ag-set__sec">
                 <div class="ag-set__row">
@@ -452,7 +457,7 @@
                     <h2 id="p3d-title">—</h2>
                     <p class="adm-muted" id="p3d-sub"></p>
                 </div>
-                <button class="adm-btn adm-btn--icon" id="p3d-close" type="button" aria-label="Fechar">×</button>
+                <button class="adm-btn adm-btn--icon ico-x" id="p3d-close" type="button" aria-label="Fechar"></button>
             </div>
             <div class="p3d__body">
                 <div class="p3d__canvas" id="p3d-canvas"></div>

@@ -107,7 +107,7 @@ J2 = [128, 250, 350, 414]
 ARM_Y = [1.35, 1.078, 0.866, 0.725]
 ARM_C = [0.19, 0.27, 0.41, 0.43]
 ARM_H = [0.05, 0.04, 0.032, 0.035]
-ARM_PTS = {("P", None), ("IG", range(1, 16)), ("C", None), ("ID", range(1, 10)), ("PC", range(2, 10)), ("TA", range(1, 14))}
+ARM_PTS = {("LU", None), ("LI", range(1, 16)), ("HT", None), ("SI", range(1, 10)), ("PC", range(2, 10)), ("SJ", range(1, 14))}
 
 
 def is_arm(m, n, x, y):
@@ -145,7 +145,7 @@ def place(x, y, view, arm):
     return [round(float(v), 4) for v in (*SV[k], *SN[k])]
 
 
-bilateral = {m[0]: m[5] for m in acu.MERIDIANS}
+bilateral = {acu.PT_TO_CN[m[0]]: m[5] for m in acu.MERIDIANS}
 pts3d = {}
 for pt in acu.all_points():
     first = place(pt["x"], pt["y"], pt["view"], is_arm(pt["meridian"], pt["number"], pt["x"], pt["y"]))

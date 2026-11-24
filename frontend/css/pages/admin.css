@@ -4968,3 +4968,381 @@ body.mp-noscroll {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* ---------------------------------------------------------------- janelas (pop-ups) maiores, só rolagem vertical */
+.adm-modal {
+    width: min(640px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    font-size: 1.04rem;
+}
+
+.adm-modal--small {
+    width: min(500px, calc(100vw - 32px));
+}
+
+.adm-modal--wide,
+.ag-set-modal {
+    width: min(1040px, calc(100vw - 32px));
+}
+
+.adm-modal .adm-form {
+    gap: 16px;
+    padding: 30px 32px;
+}
+
+.adm-modal .adm-form h2 {
+    font-size: 1.4rem;
+}
+
+.adm-modal .adm-form > *,
+.adm-modal .adm-form label,
+.adm-modal .adm-form__row > * {
+    min-width: 0;
+}
+
+.adm-modal input,
+.adm-modal select,
+.adm-modal textarea {
+    max-width: 100%;
+    min-height: 46px;
+    font-size: 1rem;
+}
+
+.adm-modal textarea {
+    min-height: 96px;
+}
+
+.adm-modal img,
+.adm-modal video,
+.adm-modal svg,
+.adm-modal canvas,
+.adm-modal table {
+    max-width: 100%;
+}
+
+@media (max-width: 760px) {
+    .adm-modal,
+    .adm-modal--small,
+    .adm-modal--wide,
+    .ag-set-modal {
+        width: 100vw;
+        max-height: 94dvh;
+    }
+
+    .adm-modal .adm-form {
+        padding: 22px 18px calc(24px + env(safe-area-inset-bottom));
+    }
+}
+
+/* tema escuro: fundos roxos mais fortes para a letra branca ficar bem legível (nada "some") */
+.theme-dark .adm-btn--primary {
+    background: linear-gradient(135deg, #6f22ad, #8d3fd0);
+    color: #fff;
+}
+
+.theme-dark .mp-mer.is-active[data-mer=""],
+.theme-dark .ag-col.is-today header,
+.theme-dark .ag-cell.is-today .ag-cell__num,
+.theme-dark .cli-slot.is-active,
+.theme-dark .pf-chip input:checked + span,
+.theme-dark .fin-chart-picker .is-active {
+    background: #7a2bbd;
+    color: #fff;
+}
+
+/* ---------------------------------------------------------------- ícones desenhados (sempre no centro exato)
+   ☰, ×, +, −, ‹ e › feitos com linhas de medida fixa: nada de letra torta ou fora do meio. */
+.ico-x,
+.ico-plus,
+.ico-minus,
+.ico-prev,
+.ico-next {
+    position: relative;
+    padding: 0 !important;
+    font-size: 0 !important;
+    line-height: 0;
+}
+
+.adm-btn--icon {
+    flex: none;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+}
+
+.ico-x::before,
+.ico-x::after,
+.ico-plus::before,
+.ico-plus::after,
+.ico-minus::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 2px;
+    margin: -1px 0 0 -8px;
+    border-radius: 2px;
+    background: currentColor;
+}
+
+.ico-x::before {
+    transform: rotate(45deg);
+}
+
+.ico-x::after {
+    transform: rotate(-45deg);
+}
+
+.ico-plus::after {
+    transform: rotate(90deg);
+}
+
+.ico-prev::before,
+.ico-next::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 9px;
+    height: 9px;
+    margin: -5.5px 0 0 -4.5px;
+    border: solid currentColor;
+    border-width: 2px 0 0 2px;
+    border-radius: 1px;
+}
+
+.ico-prev::before {
+    transform: translateX(2px) rotate(-45deg);
+}
+
+.ico-next::before {
+    transform: translateX(-2px) rotate(135deg);
+}
+
+/* botões pequenos (zoom do boneco, "+" do calendário): ícone menor, no mesmo centro */
+.doll-zoom .ico-plus::before,
+.doll-zoom .ico-plus::after,
+.doll-zoom .ico-minus::before,
+.ag-cell__act .ico-plus::before,
+.ag-cell__act .ico-plus::after {
+    width: 12px;
+    margin-left: -6px;
+}
+
+/* ---------------------------------------------------------------- ☰ menu: 3 listras idênticas, espaço igual,
+   e o × do menu aberto feito das mesmas listras, cruzando exatamente no centro */
+.adm-rail__menu {
+    display: block;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+}
+
+.adm-rail__menu span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 2px;
+    margin: -1px 0 0 -10px;
+    border-radius: 2px;
+}
+
+.adm-rail__menu span:nth-child(1) {
+    transform: translateY(-7px);
+}
+
+.adm-rail__menu span:nth-child(3) {
+    transform: translateY(7px);
+}
+
+.nav-open .adm-rail__menu span:nth-child(1) {
+    transform: rotate(45deg);
+}
+
+.nav-open .adm-rail__menu span:nth-child(3) {
+    transform: rotate(-45deg);
+}
+
+/* × de fechar o menu: mesmas medidas do ☰ (20 × 2 px, centro exato) */
+.adm-nav__close {
+    display: block;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 0;
+}
+
+.adm-nav__close::before,
+.adm-nav__close::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 2px;
+    margin: -1px 0 0 -10px;
+}
+
+/* ---------------------------------------------------------------- botões simétricos */
+.adm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.adm-btn--link {
+    display: inline;
+}
+
+.adm-form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+    align-items: stretch;
+}
+
+.adm-form__actions .adm-btn {
+    min-width: 128px;
+    min-height: 46px;
+}
+
+@media (max-width: 520px) {
+    .adm-form__actions .adm-btn {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+.doll-zoom button,
+.ag-cell__act button {
+    position: relative;
+}
+
+.ag-cell__act button {
+    color: var(--ink, #24152e);
+}
+
+.onb__x {
+    position: relative !important;
+    width: 44px;
+    height: 44px;
+}
+
+/* protocolo: campo do ponto + Adicionar na mesma linha; "Inserir combinação" embaixo, largura toda */
+.pf-points__add {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.pf-points__add input {
+    width: 100%;
+}
+
+.pf-points__add [data-insert-combo] {
+    grid-column: 1 / -1;
+    width: 100%;
+}
+
+.pf-points__add [data-points-add] {
+    min-width: 120px;
+    white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+    .pf-points__add {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+}
+
+/* barra fixa de Salvar sempre por cima do conteúdo (inclusive dos botões de zoom do boneco) */
+.pf-sticky-actions {
+    z-index: 6;
+}
+
+.doll-zoom {
+    z-index: 1;
+}
+
+.adm-modal .pf-sticky-actions {
+    margin: 0 -32px -30px;
+    padding: 14px 32px;
+}
+
+@media (max-width: 760px) {
+    .adm-modal .pf-sticky-actions {
+        margin: 0 -18px calc(-24px - env(safe-area-inset-bottom));
+        padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+    }
+}
+
+/* as três figuras começam na mesma altura: botões de zoom alinhados */
+.pf-doll__body {
+    align-items: start;
+}
+
+/* horário extra aberto pela administração */
+.ag-extra {
+    padding: 6px 10px;
+    border: 1px solid #9fd4b4;
+    border-radius: 10px;
+    background: var(--soft-ok, #e7f6ec);
+    color: #1f6b3e;
+    font-size: .84rem;
+    font-weight: 700;
+}
+
+.ag-cell__extra {
+    overflow: hidden;
+    padding: 2px 5px;
+    border-radius: 6px;
+    background: var(--soft-ok, #e7f6ec);
+    color: #1f6b3e;
+    font-size: .72rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.theme-dark .ag-extra,
+.theme-dark .ag-cell__extra {
+    color: #0f3d22;
+}
+
+.ag-set__form {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.ag-set__form label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.ag-set__form .adm-btn {
+    min-height: 46px;
+}
+
+@media (max-width: 640px) {
+    .ag-set__form {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .ag-set__form label:first-child,
+    .ag-set__form .adm-btn {
+        grid-column: 1 / -1;
+    }
+}

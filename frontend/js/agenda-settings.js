@@ -1,4 +1,5 @@
-/* Agenda › ⚙️ Dias e eventos: dias da semana com atendimento (domingo fixo) e eventos da clínica (CRUD). */
+/* Agenda › ⚙️ Horários e eventos: horários extras (fora do 9h–11h / 13h–19h, só de terça a quinta)
+   e eventos da clínica (criar, editar, excluir). */
 (() => {
   const $ = (s, el = document) => el.querySelector(s);
   const A = () => window.AjnaAdmin;
@@ -7,35 +8,40 @@
   const evForm = $("#event-form");
   if (!modal || !evModal) return;
 
-  const st = { closed: [], names: [], fixed: [6], recurrences: {}, events: [], editing: null };
+  const st = { open: [1, 2, 3], recurrences: {}, events: [], extras: [], editing: null };
   const dateBR = (s) => (s ? s.split("-").reverse().join("/") : "");
+  const WD = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
-  // ---------------------------------------------------------------- dias de atendimento
-  function renderDays() {
-    $("#ags-days").innerHTML = st.names.map((name, i) => {
-      const fixed = st.fixed.includes(i);
-      const open = !st.closed.includes(i);
-      return `<label class="ag-set__day ${fixed ? "is-fixed" : ""}" title="${fixed ? "Domingo é sempre sem atendimento" : ""}">
-        <input type="checkbox" data-ags-day="${i}" ${open && !fixed ? "checked" : ""} ${fixed ? "disabled" : ""}>
-        <span>${name}</span><small>${fixed ? "Sem atendimento" : open ? "Atende" : "Fechado"}</small></label>`;
-    }).join("");
+  // ---------------------------------------------------------------- horários extras
+  function renderExtras() {
+    const esc = A().esc;
+    $("#ags-extras").innerHTML = st.extras.map((x) => `
+      <div class="adm-appt ag-set__ev">
+        <div class="ag-set__ev-main">
+          <b>🕐 ${esc(dateBR(x.date))} (${WD[new Date(`${x.date}T12:00`).getDay()]})</b>
+          <span class="adm-muted">das ${esc(x.start)} às ${esc(x.end)}</span>
+        </div>
+        <div class="ag-set__ev-act">
+          <button class="adm-btn adm-btn--sm adm-btn--danger" data-extra-del="${x.id}" type="button">🗑️ Excluir</button>
+        </div>
+      </div>`).join("") || '<p class="adm-empty">Nenhum horário extra aberto.</p>';
   }
 
-  $("#ags-days").addEventListener("change", (e) => {
-    const box = e.target.closest("[data-ags-day]");
-    if (box) box.parentElement.querySelector("small").textContent = box.checked ? "Atende" : "Fechado";
-  });
-
-  $("#ags-days-save").addEventListener("click", async () => {
-    const closed = [...modal.querySelectorAll("[data-ags-day]")]
-      .filter((b) => !b.checked && !b.disabled).map((b) => Number(b.dataset.agsDay));
-    $("#ags-days-error").textContent = "";
+  $("#ags-extra-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.currentTarget.elements;
+    $("#ags-extra-error").textContent = "";
+    const wd = (new Date(`${f.date.value}T12:00`).getDay() + 6) % 7; // 0 = segunda
+    if (f.date.value && !st.open.includes(wd)) {
+      $("#ags-extra-error").textContent = "Horários extras só de terça a quinta. Segunda, sexta, sábado e domingo não têm agendamento.";
+      return;
+    }
     try {
-      const r = await A().api("/api/admin/calendar-settings", { method: "PUT", body: { closed_weekdays: closed } });
-      st.closed = r.closed_weekdays;
-      A().toast("Dias de atendimento salvos.");
+      await A().api("/api/admin/extra-hours", { method: "POST", body: { date: f.date.value, start: f.start.value, end: f.end.value } });
+      A().toast("Horário extra aberto para os clientes.");
+      await loadAll();
       A().reloadAgenda();
-    } catch (err) { $("#ags-days-error").textContent = err.message; }
+    } catch (err) { $("#ags-extra-error").textContent = err.message; }
   });
 
   // ---------------------------------------------------------------- eventos
@@ -59,10 +65,10 @@
   }
 
   async function loadAll() {
-    const [cfg, evs] = await Promise.all([A().api("/api/admin/calendar-settings"), A().api("/api/admin/events")]);
-    st.closed = cfg.closed_weekdays; st.names = cfg.weekday_names; st.fixed = cfg.fixed;
-    st.recurrences = cfg.recurrences; st.events = evs.items;
-    renderDays();
+    const [cfg, evs, ex] = await Promise.all([A().api("/api/admin/calendar-settings"), A().api("/api/admin/events"),
+      A().api("/api/admin/extra-hours")]);
+    st.open = cfg.open_weekdays; st.recurrences = cfg.recurrences; st.events = evs.items; st.extras = ex.items;
+    renderExtras();
     renderEvents();
   }
 
@@ -110,6 +116,17 @@
   modal.addEventListener("click", async (e) => {
     if (e.target.closest("[data-ags-close]")) return modal.close();
     if (e.target.closest("#ags-new-event")) return openEvent(null);
+    const xd = e.target.closest("[data-extra-del]");
+    if (xd) {
+      if (!(await A().confirmAction("Excluir horário extra?", "Os clientes não vão mais conseguir agendar nesse horário.", "Excluir"))) return;
+      try {
+        await A().api(`/api/admin/extra-hours/${xd.dataset.extraDel}`, { method: "DELETE" });
+        A().toast("Horário extra excluído.");
+        await loadAll();
+        A().reloadAgenda();
+      } catch (err) { A().toast(err.message, true); }
+      return;
+    }
     const ed = e.target.closest("[data-ev-edit]");
     if (ed) return openEvent(st.events.find((x) => x.id === Number(ed.dataset.evEdit)));
     const del = e.target.closest("[data-ev-del]");

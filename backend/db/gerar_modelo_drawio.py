@@ -84,13 +84,17 @@ TABLES = [
     ], "Parte teórica: diagnósticos MTC, sintomas, combinações e língua (foto em data.image)"),
     ("settings", "#f5f5f5", 1180, 400, [
         ("key", "TEXT", "PK"), ("value", "TEXT", ""),
-    ], "Configurações (primary_admin_id, closed_weekdays = dias sem atendimento, domingo fixo)"),
+    ], "Configurações (ex.: primary_admin_id = administradora principal)"),
     ("events", "#d5e8d4", 40, 780, [
         ("id", "INTEGER", "PK"), ("title", "TEXT", ""), ("icon", "TEXT (emoji)", ""), ("description", "TEXT", ""),
         ("date", "TEXT AAAA-MM-DD", ""), ("recurrence", "TEXT once|weekly|monthly|last_weekday|yearly", ""),
         ("until", "TEXT AAAA-MM-DD", ""), ("start_time", "TEXT HH:MM", ""), ("end_time", "TEXT HH:MM", ""),
         ("created_at", "TEXT", ""),
     ], "Eventos da clínica para todos (ex.: Reiki voluntário), criados pela administração"),
+    ("extra_hours", "#d5e8d4", 1180, 850, [
+        ("id", "INTEGER", "PK"), ("date", "TEXT AAAA-MM-DD (só ter–qui)", ""), ("start", "TEXT HH:MM", ""),
+        ("end", "TEXT HH:MM", ""), ("created_at", "TEXT", ""),
+    ], "Horários extras para o cliente agendar, fora do padrão 9h–11h / 13h–19h"),
 ]
 
 # (tabela de origem, coluna, tabela de destino, cardinalidade)

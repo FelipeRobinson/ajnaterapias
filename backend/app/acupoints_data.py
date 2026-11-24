@@ -38,6 +38,14 @@ PT_TO_CN = {"P": "LU", "IG": "LI", "E": "ST", "BP": "SP", "C": "HT", "ID": "SI",
 CN_TO_PT = {cn: pt for pt, cn in PT_TO_CN.items()}
 
 
+def sort_key(point):
+    """Ordem tradicional: LU, LI, ST… DU, REN, depois orelha (OR) e extras, cada um pelo número."""
+    order = {PT_TO_CN[m[0]]: i for i, m in enumerate(MERIDIANS)}
+    order[EXTRA_MERIDIAN] = len(order)
+    return (point["custom"] or 0, order.get(point["meridian"], 98 if point["meridian"] == "OR" else 99),
+            point["number"] or 0, point["code"])
+
+
 def to_cn(code):
     """'VB20' -> 'GB20'. Códigos que não são de meridiano (OR-..., EX-...) ficam iguais."""
     letters = code.rstrip("0123456789")
@@ -184,6 +192,69 @@ AURICULAR_REGIONS = {"HX": "Hélice", "SF": "Escafa", "AH": "Anti-hélice", "TF"
                      "TG": "Trago", "AT": "Antítrago", "CO": "Concha", "LO": "Lóbulo"}
 
 
+# ------------------------------------------------------------------ pontos extras da OMS (48)
+# WHO "Standard Acupuncture Nomenclature": EX-HN (cabeça e pescoço), EX-CA (tórax e abdome), EX-B (dorso),
+# EX-UE (membros superiores), EX-LE (membros inferiores). (código, pinyin, nome em português, vista, x, y)
+# Posições esquemáticas no lado esquerdo da tela (x=150 = linha média). A clínica pode arrastar para corrigir.
+EXTRA_POINTS = [
+    ("EX-HN1", "Sishencong", "Quatro Espíritos Atentos", "front", 143, 22),
+    ("EX-HN2", "Dangyang", "Encarar o Yang", "front", 138, 30),
+    ("EX-HN3", "Yintang", "Salão da Impressão", "front", 150, 52),
+    ("EX-HN4", "Yuyao", "Cintura do Peixe", "front", 137, 53),
+    ("EX-HN5", "Taiyang", "Sol / Têmpora", "front", 124, 56),
+    ("EX-HN6", "Erjian", "Ápice da Orelha", "front", 114, 54),
+    ("EX-HN7", "Qiuhou", "Atrás do Globo Ocular", "front", 133, 66),
+    ("EX-HN8", "Shangyingxiang", "Acima do Yingxiang", "front", 143, 71),
+    ("EX-HN9", "Neiyingxiang", "Yingxiang Interno", "front", 146, 77),
+    ("EX-HN10", "Juquan", "Fonte Concentrada (língua)", "front", 150, 84),
+    ("EX-HN11", "Haiquan", "Fonte do Mar (sob a língua)", "front", 150, 88),
+    ("EX-HN12", "Jinjin", "Líquido Dourado", "front", 147, 89),
+    ("EX-HN13", "Yuye", "Líquido de Jade", "front", 147, 91),
+    ("EX-HN14", "Yiming", "Clareza Abrigada", "back", 124, 70),
+    ("EX-HN15", "Jingbailao", "Cem Fadigas do Pescoço", "back", 142, 106),
+    ("EX-CA1", "Zigong", "Palácio da Criança (útero)", "front", 132, 315),
+    ("EX-B1", "Dingchuan", "Acalmar a Asma", "back", 142, 121),
+    ("EX-B2", "Jiaji", "Ao Lado da Coluna (Huatuo)", "back", 145, 200),
+    ("EX-B3", "Weiwanxiashu", "Shu Inferior do Estômago", "back", 140, 205),
+    ("EX-B4", "Pigen", "Raiz do Nódulo", "back", 127, 268),
+    ("EX-B5", "Xiajishu", "Shu Inferior do Pilar", "back", 150, 276),
+    ("EX-B6", "Yaoyi", "Lombar Apropriado", "back", 134, 284),
+    ("EX-B7", "Yaoyan", "Olhos da Lombar", "back", 130, 288),
+    ("EX-B8", "Shiqizhui", "Décima Sétima Vértebra", "back", 150, 300),
+    ("EX-B9", "Yaoqi", "Lombar Extraordinário", "back", 150, 322),
+    ("EX-UE1", "Zhoujian", "Ponta do Cotovelo", "back", 90, 256),
+    ("EX-UE2", "Erbai", "Dois Brancos", "front", 77, 308),
+    ("EX-UE3", "Zhongquan", "Fonte do Meio", "back", 70, 352),
+    ("EX-UE4", "Zhongkui", "Líder do Meio", "back", 63, 412),
+    ("EX-UE5", "Dagukong", "Grande Cavidade Óssea", "back", 57, 404),
+    ("EX-UE6", "Xiaogukong", "Pequena Cavidade Óssea", "back", 71, 412),
+    ("EX-UE7", "Yaotongdian", "Ponto da Dor Lombar", "back", 68, 376),
+    ("EX-UE8", "Wailaogong", "Laogong Externo", "back", 67, 386),
+    ("EX-UE9", "Baxie", "Oito Patógenos", "back", 65, 399),
+    ("EX-UE10", "Sifeng", "Quatro Fendas", "front", 64, 410),
+    ("EX-UE11", "Shixuan", "Dez Difusões", "front", 61, 419),
+    ("EX-LE1", "Kuangu", "Osso do Quadril", "front", 123, 472),
+    ("EX-LE2", "Heding", "Topo da Garça", "front", 131, 487),
+    ("EX-LE3", "Baichongwo", "Ninho dos Cem Insetos", "front", 143, 455),
+    ("EX-LE4", "Neixiyan", "Olho Interno do Joelho", "front", 135, 505),
+    ("EX-LE5", "Xiyan", "Olhos do Joelho", "front", 130, 507),
+    ("EX-LE6", "Dannang", "Vesícula Biliar", "front", 110, 540),
+    ("EX-LE7", "Lanwei", "Apêndice", "front", 124, 550),
+    ("EX-LE8", "Neihuaijian", "Ponta do Maléolo Medial", "front", 138, 662),
+    ("EX-LE9", "Waihuaijian", "Ponta do Maléolo Lateral", "front", 114, 660),
+    ("EX-LE10", "Bafeng", "Oito Ventos", "front", 120, 694),
+    ("EX-LE11", "Duyin", "Yin Solitário", "front", 123, 700),
+    ("EX-LE12", "Qiduan", "Pontas dos Pés", "front", 118, 706),
+]
+EXTRA_MERIDIAN = "EXT"  # pontos extras da OMS (os pontos extras criados pela clínica usam "EX")
+
+
+def extra_points():
+    return [{"code": code, "meridian": EXTRA_MERIDIAN, "number": i, "intl_code": code, "pinyin": pinyin,
+             "name_pt": name, "view": view, "x": x, "y": y}
+            for i, (code, pinyin, name, view, x, y) in enumerate(EXTRA_POINTS, start=1)]
+
+
 def auricular_code(gb):
     return "OR-" + gb.replace(",", ".").upper()
 
@@ -196,6 +267,9 @@ def auricular_points():
 def default_position(meridian, number):
     """Posição esquemática padrão de um ponto: (vista, x, y)."""
     meridian = CN_TO_PT.get(meridian, meridian)
+    if meridian == EXTRA_MERIDIAN:
+        _c, _p, _n, view, x, y = EXTRA_POINTS[number - 1]
+        return view, x, y
     if meridian == "OR":
         _gb, _name, x, y = AURICULAR[number - 1]
         return "ear", x, y
@@ -225,5 +299,8 @@ def all_points():
 def meridians_json():
     return [{"code": PT_TO_CN[c], "intl": i, "name": n, "color": col, "element": el, "bilateral": b}
             for c, i, n, col, el, b in MERIDIANS] + [
+        # pontos da linha média ficam em x=150: o "espelho" cai no mesmo lugar
+        {"code": EXTRA_MERIDIAN, "intl": "EX (OMS)", "name": "Pontos extras (OMS)", "color": "#8a6d3b",
+         "element": "—", "bilateral": True},
         {"code": "OR", "intl": "GB/T 13734", "name": "Orelha (auriculoterapia)", "color": "#d9480f",
          "element": "—", "bilateral": False}]

@@ -10,7 +10,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from ..acupoints_data import default_position, meridians_json
+from ..acupoints_data import default_position, meridians_json, sort_key
 from ..database import IntegrityError, get_db
 from ..security import csrf_required, login_required, roles_required
 
@@ -55,7 +55,7 @@ def list_points():
     db = get_db()
     rows = db.execute("SELECT * FROM acupoints ORDER BY custom, meridian, number, code").fetchall()
     counts = {code: len(s) for code, s in _usage(db).items()}
-    points = [{**dict(r), "used": counts.get(r["code"], 0)} for r in rows]
+    points = sorted(({**dict(r), "used": counts.get(r["code"], 0)} for r in rows), key=sort_key)
     return jsonify(meridians=meridians_json() + [EXTRA], points=points)
 
 

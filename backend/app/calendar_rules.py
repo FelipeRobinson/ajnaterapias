@@ -1,21 +1,22 @@
 """Regras do calendário da clínica: horários de atendimento, dias sem atendimento e eventos.
 
 Dia da semana: 0 = segunda ... 6 = domingo.
-- Domingo é sempre "Sem atendimento" (fixo).
-- Os outros dias (segunda a sábado) a administração liga/desliga no painel (Agenda › ⚙️ Dias de atendimento).
+- Atendimento só de terça a quinta. Segunda, sexta, sábado e domingo ficam fechados para o cliente agendar
+  (na agenda só o domingo mostra "Sem atendimento").
+- Horários padrão: 9h–11h e 13h–19h. A administração pode abrir HORÁRIOS EXTRAS (tabela extra_hours)
+  fora desse período, sempre de terça a quinta (Agenda › ⚙️ Horários extras e eventos).
 - Eventos (ex.: Reiki voluntário) ficam na tabela events e a administração cria/edita/exclui no painel.
 """
 import calendar
-import json
 from datetime import date, timedelta
 
 from flask import current_app
 
-from .database import get_db, get_setting, set_setting
+from .database import get_db
 
 SUNDAY = 6
-# Padrão de fábrica: atendimento de terça a quinta (a administração pode mudar).
-DEFAULT_CLOSED = (0, 4, 5)
+# Dias sem atendimento (fixos): segunda, sexta, sábado e domingo.
+CLOSED_WEEKDAYS = (0, 4, 5, 6)
 # Horários que o cliente pode agendar: 9h às 11h e 13h às 19h.
 OPENING_WINDOWS = (("09:00", "11:00"), ("13:00", "19:00"))
 WEEKDAY_NAMES = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
@@ -30,17 +31,13 @@ RECURRENCES = {
 
 def closed_weekdays():
     """Dias sem atendimento. Os testes podem trocar por app.config["CLOSED_WEEKDAYS"]."""
-    if "CLOSED_WEEKDAYS" in current_app.config:
-        return tuple(current_app.config["CLOSED_WEEKDAYS"])
-    raw = get_setting(get_db(), "closed_weekdays")
-    days = json.loads(raw) if raw else DEFAULT_CLOSED
-    return tuple(sorted({int(d) for d in days if 0 <= int(d) <= 5} | {SUNDAY}))
+    return tuple(current_app.config.get("CLOSED_WEEKDAYS", CLOSED_WEEKDAYS))
 
 
-def save_closed_weekdays(db, days):
-    days = sorted({int(d) for d in days if str(d).isdigit() and 0 <= int(d) <= 5})
-    set_setting(db, "closed_weekdays", json.dumps(days))
-    return tuple(days) + (SUNDAY,)
+def extra_hours(db, day):
+    """Horários extras abertos pela administração num dia: [(início, fim), ...]."""
+    rows = db.execute('SELECT start, "end" FROM extra_hours WHERE date = ? ORDER BY start', (day.isoformat(),)).fetchall()
+    return [(r["start"], r["end"]) for r in rows]
 
 
 def is_closed(day):
