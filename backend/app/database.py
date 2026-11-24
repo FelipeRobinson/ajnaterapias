@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar        TEXT,
     social        INTEGER NOT NULL DEFAULT 0,
     profile       TEXT,
+    onboarded_at  TEXT,
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -121,7 +122,7 @@ CREATE TABLE IF NOT EXISTS medical_records (
     updated_by      INTEGER REFERENCES users(id)
 );
 
--- Protocolo de atendimento (preenchido a cada consulta).
+-- Protocolo de atendimento (preenchido a cada sessão).
 CREATE TABLE IF NOT EXISTS session_protocols (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     appointment_id  INTEGER NOT NULL UNIQUE REFERENCES appointments(id),
@@ -161,6 +162,19 @@ CREATE TABLE IF NOT EXISTS theory_items (
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
+-- Eventos da clínica para todos (ex.: Reiki voluntário). recurrence: once, weekly, monthly, last_weekday, yearly.
+CREATE TABLE IF NOT EXISTS events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    title        TEXT NOT NULL,
+    icon         TEXT,
+    description  TEXT,
+    date         TEXT NOT NULL,
+    recurrence   TEXT NOT NULL DEFAULT 'once',
+    until        TEXT,
+    start_time   TEXT,
+    end_time     TEXT,
+    created_at   TEXT NOT NULL
+);
 -- Configurações gerais (ex.: primary_admin_id = administradora principal).
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -180,6 +194,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar        TEXT,
     social        INTEGER NOT NULL DEFAULT 0,
     profile       TEXT,
+    onboarded_at  TEXT,
     created_at    TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
 );
 
@@ -277,7 +292,7 @@ CREATE TABLE IF NOT EXISTS medical_records (
     updated_by      INTEGER REFERENCES users(id)
 );
 
--- Protocolo de atendimento (preenchido a cada consulta).
+-- Protocolo de atendimento (preenchido a cada sessão).
 CREATE TABLE IF NOT EXISTS session_protocols (
     id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     appointment_id  INTEGER NOT NULL UNIQUE REFERENCES appointments(id),
@@ -316,6 +331,19 @@ CREATE TABLE IF NOT EXISTS theory_items (
     points      TEXT NOT NULL,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
+);
+-- Eventos da clínica para todos (ex.: Reiki voluntário). recurrence: once, weekly, monthly, last_weekday, yearly.
+CREATE TABLE IF NOT EXISTS events (
+    id           SERIAL PRIMARY KEY,
+    title        TEXT NOT NULL,
+    icon         TEXT,
+    description  TEXT,
+    date         TEXT NOT NULL,
+    recurrence   TEXT NOT NULL DEFAULT 'once',
+    until        TEXT,
+    start_time   TEXT,
+    end_time     TEXT,
+    created_at   TEXT NOT NULL
 );
 -- Configurações gerais (ex.: primary_admin_id = administradora principal).
 CREATE TABLE IF NOT EXISTS settings (
@@ -394,9 +422,12 @@ def init_db(app):
                 db.conn.execute(f"ALTER TABLE appointments ADD COLUMN IF NOT EXISTS {col}")
             db.conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS social INTEGER NOT NULL DEFAULT 0")
             db.conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile TEXT")
+            db.conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded_at TEXT")
             db.conn.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS social INTEGER NOT NULL DEFAULT 0")
             _seed_services(db)
+            _migrate_point_codes(db)
             _seed_acupoints(db)
+            _seed_events(db)
             _seed_theory(db)
             db.commit()
         finally:
@@ -425,8 +456,12 @@ def init_db(app):
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN social INTEGER NOT NULL DEFAULT 0")
         if "profile" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}:
             conn.execute("ALTER TABLE users ADD COLUMN profile TEXT")  # dados pessoais (JSON)
+        if "onboarded_at" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}:
+            conn.execute("ALTER TABLE users ADD COLUMN onboarded_at TEXT")  # quando viu as boas-vindas
         _seed_services(conn)
+        _migrate_point_codes(conn)
         _seed_acupoints(conn)
+        _seed_events(conn)
         _seed_theory(conn)
         conn.commit()
     finally:
@@ -467,6 +502,45 @@ def _seed_acupoints(db):
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
             (pt["code"], pt["meridian"], pt["number"], pt["intl_code"], pt["pinyin"], pt["view"], pt["x"], pt["y"]),
         )
+
+
+def _migrate_point_codes(db):
+    """Bancos antigos usavam as siglas brasileiras (VB20, IG4…). Passa tudo para as siglas chinesas
+    (GB20, LI4…), inclusive nos protocolos das sessões e nas combinações, mantendo as edições."""
+    import json
+    from .acupoints_data import PT_TO_CN, to_cn
+    old = [m for m, cn in PT_TO_CN.items() if m != cn]
+    rows = db.execute(f"SELECT code FROM acupoints WHERE custom = 0 AND meridian IN ({','.join('?' * len(old))})",
+                      old).fetchall()
+    if not rows:
+        return
+    for r in rows:
+        # se o ponto novo já foi criado vazio (servidor ligado no meio da troca), fica o antigo, com as edições
+        db.execute("DELETE FROM acupoints WHERE code = ?", (to_cn(r["code"]),))
+        db.execute("UPDATE acupoints SET code = ?, meridian = ? WHERE code = ?",
+                   (to_cn(r["code"]), PT_TO_CN[r["code"].rstrip("0123456789")], r["code"]))
+    for r in db.execute("SELECT id, data FROM session_protocols").fetchall():
+        data = json.loads(r["data"])
+        if data.get("acupoints"):
+            data["acupoints"] = [to_cn(c) for c in data["acupoints"]]
+            db.execute("UPDATE session_protocols SET data = ? WHERE id = ?", (json.dumps(data, ensure_ascii=False), r["id"]))
+    for r in db.execute("SELECT id, points FROM theory_items").fetchall():
+        pts = [to_cn(c) for c in json.loads(r["points"] or "[]")]
+        db.execute("UPDATE theory_items SET points = ? WHERE id = ?", (json.dumps(pts), r["id"]))
+
+
+def _seed_events(db):
+    """Na primeira vez: o Reiki voluntário (último sábado de cada mês)."""
+    if get_setting(db, "events_seeded"):
+        return
+    from datetime import datetime
+    from .calendar_rules import last_saturday
+    today = datetime.now().date()
+    db.execute("""INSERT INTO events (title, icon, description, date, recurrence, created_at)
+                  VALUES (?, ?, ?, ?, 'last_weekday', ?)""",
+               ("Reiki voluntário", "🌟", "Encontro mensal de Reiki voluntário, aberto a todos, no último sábado do mês.",
+                last_saturday(today.year, today.month).isoformat(), datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    set_setting(db, "events_seeded", 1)
 
 
 DEFAULT_SERVICES = ["Acupuntura", "Auriculoterapia", "Reiki", "Ventosaterapia", "Moxabustão"]

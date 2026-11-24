@@ -1,4 +1,4 @@
-"""Testes da área do cliente: pedir horário, cancelar, meus dados."""
+"""Testes da área do cliente: agendar sessão, cancelar, meus dados."""
 from datetime import date, datetime, timedelta
 
 from app.routes import patient as rules
@@ -7,7 +7,7 @@ from tests.test_admin import admin_client, new_patient
 
 def next_open_day(min_days=2):
     d = date.today() + timedelta(days=min_days)
-    while d.weekday() not in rules.OPENING_HOURS:
+    while d.weekday() == 6:  # domingo nunca tem atendimento
         d += timedelta(days=1)
     return d
 
@@ -25,7 +25,9 @@ def test_request_confirm_and_cancel(tmp_path):
     day = next_open_day().isoformat()
 
     slots = cli.get(f"/api/patient/slots?date={day}").get_json()["slots"]
-    assert slots and slots[0]["start"] == rules.OPENING_HOURS[next_open_day().weekday()][0]
+    assert slots and slots[0]["start"] == "09:00"
+    # só 9h–11h e 13h–19h
+    assert [s["start"] for s in slots] == ["09:00", "10:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"]
 
     # pede o primeiro horário
     assert cli.post("/api/patient/appointments", json={"date": day, "start": slots[0]["start"]}, headers=ch).status_code == 201
@@ -61,8 +63,9 @@ def test_cannot_cancel_confirmed_close_to_time(tmp_path):
 
 def test_limits_and_closed_days(tmp_path):
     adm, h, cli, ch, pid = setup(tmp_path)
+    adm.application.config["CLOSED_WEEKDAYS"] = (6,)
     closed = date.today() + timedelta(days=1)
-    while closed.weekday() in rules.OPENING_HOURS:
+    while closed.weekday() != 6:
         closed += timedelta(days=1)
     assert cli.get(f"/api/patient/slots?date={closed}").get_json()["slots"] == []
     assert cli.get(f"/api/patient/slots?date={date.today() - timedelta(days=1)}").get_json()["slots"] == []

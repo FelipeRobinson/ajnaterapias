@@ -25,7 +25,7 @@
             <span class="adm-nav__icon" aria-hidden="true">🗓️</span><span>Agendar</span>
         </button>
         <button class="adm-nav__item" data-view="appointments" type="button">
-            <span class="adm-nav__icon" aria-hidden="true">📋</span><span>Consultas</span>
+            <span class="adm-nav__icon" aria-hidden="true">📋</span><span>Sessões</span>
         </button>
         <button class="adm-nav__item" data-view="profile" type="button">
             <span class="adm-nav__icon" aria-hidden="true">👤</span><span>Meus dados</span>
@@ -50,20 +50,17 @@
             <div class="adm-grid">
                 <section class="adm-card">
                     <div class="adm-card__head">
-                        <h2>Próximas consultas</h2>
+                        <h2>Próximas sessões</h2>
                         <button class="adm-btn adm-btn--link" data-goto="appointments" type="button">Ver todas →</button>
                     </div>
                     <div id="home-upcoming" class="adm-list"></div>
                 </section>
                 <section class="adm-card">
-                    <div class="adm-card__head"><h2>Precisa de ajuda?</h2></div>
+                    <div class="adm-card__head"><h2>Quer marcar?</h2></div>
                     <div class="adm-quick">
                         <button class="adm-quick__btn" data-goto="book" type="button">
-                            <b>＋ Pedir horário</b><span>Escolha um dia e um horário livre</span>
+                            <b>＋ Agendar Sessão</b><span>Escolha um dia e um horário livre</span>
                         </button>
-                        <a class="adm-quick__btn" id="whatsapp-link" href="https://wa.me/" target="_blank" rel="noopener noreferrer">
-                            <b>💬 Falar com a clínica</b><span>Atendimento pelo WhatsApp</span>
-                        </a>
                     </div>
                 </section>
                 <section class="adm-card cli-events">
@@ -71,6 +68,11 @@
                     <div id="home-events" class="adm-list"></div>
                 </section>
             </div>
+            <!-- botão fixo no canto de baixo (como os botões de acessibilidade) -->
+            <a class="cli-talk" id="whatsapp-link" href="https://wa.me/" target="_blank" rel="noopener noreferrer"
+               aria-label="Falar com Instituto pelo WhatsApp">
+                <span class="cli-talk__icon" aria-hidden="true">💬</span><span class="cli-talk__text"><b>Falar com Instituto</b><small>pelo WhatsApp</small></span>
+            </a>
         </section>
 
         <!-- ===== AGENDAR ===== -->
@@ -87,13 +89,13 @@
                 <div>
                     <p class="adm-muted">Seu pedido</p>
                     <strong id="book-text">—</strong>
-                    <p class="adm-muted cli-note">A clínica confirma o horário e ele aparece como <b>Confirmada</b> em “Consultas”.</p>
+                    <p class="adm-muted cli-note">A clínica confirma o horário e ele aparece como <b>Confirmada</b> em “Sessões”.</p>
                 </div>
-                <button class="adm-btn adm-btn--primary" id="book-send" type="button">Pedir este horário</button>
+                <button class="adm-btn adm-btn--primary" id="book-send" type="button">Agendar esta sessão</button>
             </section>
         </section>
 
-        <!-- ===== CONSULTAS ===== -->
+        <!-- ===== SESSÕES ===== -->
         <section class="adm-view" id="view-appointments" hidden>
             <div class="cli-tabs" role="tablist">
                 <button class="cli-tab is-active" data-tab="upcoming" type="button" role="tab">Próximas</button>

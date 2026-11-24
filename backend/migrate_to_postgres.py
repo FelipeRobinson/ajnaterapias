@@ -19,7 +19,7 @@ from app.database import _PostgresDB, init_db
 
 # Tabelas na ordem certa (users antes de appointments, por causa da chave estrangeira).
 TABLES = {
-    "users": ["id", "name", "email", "phone", "password_hash", "role", "active", "avatar", "social", "profile", "created_at"],
+    "users": ["id", "name", "email", "phone", "password_hash", "role", "active", "avatar", "social", "profile", "onboarded_at", "created_at"],
     "services": ["id", "name", "price_cents", "active", "social", "created_at"],
     "appointments": ["id", "patient_user_id", "date", "start", '"end"', "status", "created_at",
                      "service_id", "price_cents", "package_id"],
@@ -33,10 +33,13 @@ TABLES = {
     "acupoints": ["code", "meridian", "number", "intl_code", "pinyin", "name_pt", "view", "x", "y",
                   "location", "indications", "notes", "custom", "updated_at", "pos3d", "details"],
     "theory_items": ["id", "kind", "name", "group_name", "data", "points", "created_at", "updated_at"],
-    "settings": ["key", "value"],  # inclui qual é a administradora principal
+    "events": ["id", "title", "icon", "description", "date", "recurrence", "until", "start_time", "end_time",
+               "created_at"],
+    "settings": ["key", "value"],  # administradora principal e dias sem atendimento
 }
 ORDER = {"acupoints": "code", "settings": "key"}
-HAS_ID = {"users", "appointments", "schedule_blocks", "services", "packages", "payments", "expenses", "medical_records", "session_protocols", "theory_items"}
+HAS_ID = {"users", "appointments", "schedule_blocks", "services", "packages", "payments", "expenses", "medical_records",
+          "session_protocols", "theory_items", "events"}
 
 simular = "--simular" in sys.argv
 app = create_app({"INIT_DB": False})  # não conecta em nada até a hora de migrar
@@ -71,6 +74,8 @@ try:
     # o init_db também semeia estes; os dados (com as edições da clínica) vêm do SQLite
     dst.execute("DELETE FROM theory_items")
     dst.execute("DELETE FROM services")
+    dst.execute("DELETE FROM events")
+    dst.execute("DELETE FROM settings")
     for t, cols in TABLES.items():
         marks = ", ".join(["%s"] * len(cols))
         override = "OVERRIDING SYSTEM VALUE " if t in HAS_ID else ""

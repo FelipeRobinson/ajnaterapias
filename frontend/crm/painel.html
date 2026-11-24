@@ -54,7 +54,7 @@
         <section class="adm-view" id="view-overview">
             <div class="adm-stats">
                 <article class="adm-stat"><span>Clientes ativos</span><strong id="stat-patients">—</strong></article>
-                <article class="adm-stat"><span>Consultas hoje</span><strong id="stat-today">—</strong></article>
+                <article class="adm-stat"><span>Sessões hoje</span><strong id="stat-today">—</strong></article>
                 <article class="adm-stat"><span>Próximos 7 dias</span><strong id="stat-week">—</strong></article>
                 <article class="adm-stat adm-stat--alert"><span>Pedidos de horário</span><strong id="stat-requests">—</strong></article>
             </div>
@@ -76,7 +76,7 @@
                     <div class="adm-card__head"><h2>Ações rápidas</h2></div>
                     <div class="adm-quick">
                         <button class="adm-quick__btn" data-action="new-appointment" type="button">
-                            <b>＋ Nova consulta</b><span>Agendar um horário</span>
+                            <b>＋ Nova sessão</b><span>Agendar um horário</span>
                         </button>
                         <button class="adm-quick__btn" data-action="new-client" type="button">
                             <b>＋ Novo cliente</b><span>Criar acesso ao portal</span>
@@ -100,8 +100,9 @@
                     <button class="cli-tab" data-ag-view="week" type="button">▥ Semana</button>
                     <button class="cli-tab" data-ag-view="month" type="button">▦ Mês</button>
                 </div>
+                <button class="adm-btn" id="ag-settings-btn" type="button">⚙️ Dias e eventos</button>
                 <button class="adm-btn ag-block-btn" data-block-on="" type="button">⛔ Marcar indisponível</button>
-                <button class="adm-btn adm-btn--primary" data-action="new-appointment" type="button">＋ Nova consulta</button>
+                <button class="adm-btn adm-btn--primary" data-action="new-appointment" type="button">＋ Nova sessão</button>
             </div>
             <div id="week-days" class="adm-days"></div>
         </section>
@@ -176,7 +177,7 @@
                             <button class="cli-tab" data-mp-view="back" type="button">Costas</button>
                         </div>
                         <input class="adm-search mp-search" id="mp-search" type="search" list="acupoint-list"
-                               placeholder="Buscar: VB20, Hegu, E36…" aria-label="Buscar ponto">
+                               placeholder="Buscar: GB20, Hegu, ST36…" aria-label="Buscar ponto">
                         <button class="adm-btn adm-btn--ghost adm-btn--sm mp-fs" data-mp-fullscreen type="button" title="Tela cheia">⛶ Tela cheia</button>
                         <div class="mp-zoom">
                             <button class="adm-btn adm-btn--icon" data-mp-zoom="out" type="button" aria-label="Diminuir">−</button>
@@ -280,7 +281,7 @@
 
     <dialog class="adm-modal appt-view-modal" id="appt-view-modal">
         <div class="adm-form">
-            <h2>Consulta</h2>
+            <h2>Sessão</h2>
             <div id="appt-view-body"></div>
             <div class="adm-form__actions"><button class="adm-btn adm-btn--ghost" data-close type="button">Fechar</button></div>
         </div>
@@ -308,14 +309,64 @@
         </form>
     </dialog>
 
+    <!-- Dias de atendimento e eventos da clínica (agenda-settings.js) -->
+    <dialog class="adm-modal ag-set-modal" id="ag-settings-modal">
+        <div class="adm-form">
+            <div class="ag-set__head">
+                <h2>⚙️ Dias de atendimento e eventos</h2>
+                <button class="adm-btn adm-btn--ghost adm-btn--sm" type="button" data-ags-close>✕ Fechar</button>
+            </div>
+            <section class="ag-set__sec">
+                <h3 class="mp-subtitle">📆 Dias com atendimento</h3>
+                <p class="adm-muted">Marque os dias em que a clínica atende. Horários que o cliente pode agendar: <b>9h às 11h</b> e <b>13h às 19h</b>. Domingo é sempre sem atendimento.</p>
+                <div class="ag-set__days" id="ags-days"></div>
+                <p class="adm-form__error" role="alert" id="ags-days-error"></p>
+                <div class="adm-form__actions"><button class="adm-btn adm-btn--primary" id="ags-days-save" type="button">Salvar dias</button></div>
+            </section>
+            <section class="ag-set__sec">
+                <div class="ag-set__row">
+                    <h3 class="mp-subtitle">🌟 Eventos da clínica</h3>
+                    <button class="adm-btn adm-btn--sm adm-btn--primary" id="ags-new-event" type="button">＋ Novo evento</button>
+                </div>
+                <p class="adm-muted">Aparecem na agenda e na área de todos os clientes (ex.: Reiki voluntário, palestras, feriados).</p>
+                <div class="adm-list" id="ags-events"></div>
+            </section>
+        </div>
+    </dialog>
+
+    <dialog class="adm-modal" id="event-modal">
+        <form method="dialog" class="adm-form" id="event-form" novalidate>
+            <h2 id="event-modal-title">Novo evento</h2>
+            <div class="adm-form__row ev-row-icon">
+                <label>Ícone<input name="icon" maxlength="8" value="🌟" aria-label="Ícone (emoji)"></label>
+                <label>Nome do evento<input name="title" maxlength="80" required placeholder="Ex.: Reiki voluntário"></label>
+            </div>
+            <div class="adm-form__row">
+                <label>Data<input name="date" type="date" required></label>
+                <label>Repetir<select name="recurrence"></select></label>
+            </div>
+            <label data-ev-until>Repetir até <span class="adm-muted">(opcional)</span><input name="until" type="date"></label>
+            <div class="adm-form__row">
+                <label>Início <span class="adm-muted">(opcional)</span><input name="start_time" type="time" step="300"></label>
+                <label>Término <span class="adm-muted">(opcional)</span><input name="end_time" type="time" step="300"></label>
+            </div>
+            <label>Descrição <span class="adm-muted">(os clientes veem)</span><textarea name="description" rows="3" maxlength="500"></textarea></label>
+            <p class="adm-form__error" role="alert"></p>
+            <div class="adm-form__actions">
+                <button class="adm-btn adm-btn--ghost" value="cancel" formnovalidate type="submit">Cancelar</button>
+                <button class="adm-btn adm-btn--primary" value="save" type="submit">Salvar evento</button>
+            </div>
+        </form>
+    </dialog>
+
     <dialog class="adm-modal" id="print-menu">
         <div class="adm-form">
             <h2>🖨️ Relatórios do paciente</h2>
             <p class="adm-muted">Abre uma página pronta para imprimir ou salvar em PDF.</p>
-            <button class="adm-btn adm-btn--primary" data-print-patient="full" type="button">📚 Prontuário completo (anamnese + acompanhamento + consultas)</button>
+            <button class="adm-btn adm-btn--primary" data-print-patient="full" type="button">📚 Prontuário completo (anamnese + acompanhamento + sessões)</button>
             <button class="adm-btn" data-print-patient="record" type="button">📋 Ficha de anamnese + acompanhamento</button>
             <button class="adm-btn" data-print-patient="followup" type="button">📈 Só o relatório de acompanhamento</button>
-            <h3 class="mp-subtitle">Ficha de uma consulta</h3>
+            <h3 class="mp-subtitle">Prontuário de uma sessão</h3>
             <div class="print-menu__sessions" id="print-menu-sessions"></div>
             <div class="adm-form__actions"><button class="adm-btn adm-btn--ghost" type="button" onclick="this.closest('dialog').close()">Fechar</button></div>
         </div>
@@ -335,7 +386,7 @@
 
     <dialog class="adm-modal" id="appointment-modal">
         <form method="dialog" class="adm-form" id="appointment-form">
-            <h2 id="appointment-modal-title">Nova consulta</h2>
+            <h2 id="appointment-modal-title">Nova sessão</h2>
             <label>Cliente<select name="patient_user_id" required></select></label>
             <label>Data<input name="date" type="date" required></label>
             <div class="adm-form__row">
@@ -426,6 +477,7 @@
     <script src="../js/shell.js"></script>
     <script src="../js/print.js"></script>
     <script src="../js/admin.js"></script>
+    <script src="../js/agenda-settings.js"></script>
     <script src="../js/theory.js"></script>
     <script src="../js/finance.js"></script>
 </body>

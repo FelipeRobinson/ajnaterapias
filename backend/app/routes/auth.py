@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 from html import escape
 from secrets import token_urlsafe
 
-from flask import Blueprint, current_app, jsonify, request, session
+import os
+
+from flask import Blueprint, abort, current_app, jsonify, request, send_file, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..database import get_db, primary_admin
@@ -41,12 +43,54 @@ def login():
 @login_required
 def me():
     user = get_db().execute(
-        "SELECT name, email, role, avatar FROM users WHERE id = ? AND active = 1", (session["user_id"],)
+        "SELECT name, email, role, avatar, onboarded_at FROM users WHERE id = ? AND active = 1", (session["user_id"],)
     ).fetchone()
     if not user:
         session.clear()
         return jsonify(error="Autenticação necessária."), 401
-    return jsonify(**dict(user), csrf_token=session.get("csrf_token"))
+    data = dict(user)
+    data["onboarded"] = bool(data.pop("onboarded_at"))
+    data["has_video"] = _onboarding_file(data["role"], "video") is not None
+    return jsonify(**data, csrf_token=session.get("csrf_token"))
+
+
+# ------------------------------------------------------------------ boas-vindas (primeiro login)
+# Administração vê o vídeo do sistema; o cliente vê o guia do cliente (pasta video_entrega/).
+ONBOARDING_FILES = {
+    "admin": {"video": "Ajna_Terapias_como_funciona.mp4", "poster": "Ajna_Terapias_thumbnail.png"},
+    "patient": {"video": "Ajna_Terapias_guia_do_cliente.mp4", "poster": "Ajna_Terapias_guia_do_cliente_thumbnail.png"},
+}
+
+
+def _onboarding_file(role, kind):
+    name = ONBOARDING_FILES.get(role, {}).get(kind)
+    if not name:
+        return None
+    path = os.path.join(current_app.config["ONBOARDING_DIR"], name)
+    return path if os.path.isfile(path) else None
+
+
+@auth_bp.get("/onboarding/<kind>")
+@login_required
+def onboarding_media(kind):
+    """O vídeo (ou a capa) de boas-vindas de quem está logado. Suporta avançar/voltar no vídeo."""
+    if kind not in ("video", "poster"):
+        abort(404)
+    path = _onboarding_file(session.get("role"), kind)
+    if not path:
+        abort(404)
+    return send_file(path, mimetype="video/mp4" if kind == "video" else "image/png", conditional=True, max_age=3600)
+
+
+@auth_bp.post("/onboarding/done")
+@login_required
+@csrf_required
+def onboarding_done():
+    """Marca que a pessoa já passou pelas boas-vindas (não aparece de novo sozinho)."""
+    db = get_db()
+    db.execute("UPDATE users SET onboarded_at = COALESCE(onboarded_at, ?) WHERE id = ?", (_now(), session["user_id"]))
+    db.commit()
+    return jsonify(ok=True)
 
 
 MAX_AVATAR = 300_000  # a tela reduz a foto para 320px antes de enviar; isto é só um teto

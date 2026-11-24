@@ -1,7 +1,9 @@
 """Os 361 pontos clássicos de acupuntura (nomenclatura padrão da OMS) e suas posições no mapa.
 
-- Códigos em português (P, IG, E, BP, C, ID, B, R, PC, TA, VB, F, VG, VC) com o equivalente
-  internacional (LU, LI, ST, SP, HT, SI, BL, KI, PC, TE, GB, LR, GV, CV).
+- Siglas da acupuntura CHINESA (LU, LI, ST, SP, HT, SI, BL, KI, PC, SJ, GB, LR, DU, REN), com o
+  código internacional da OMS ao lado (TE, GV e CV no lugar de SJ, DU e REN).
+  As tabelas abaixo ainda usam as siglas brasileiras antigas (P, IG, E…) como chave interna:
+  a conversão para as siglas chinesas é feita por PT_TO_CN.
 - Nomes em pinyin. Códigos, nomes e meridianos são dados técnicos padronizados (uso livre).
 - POSIÇÕES ESQUEMÁTICAS: o mapa é um desenho, não um atlas anatômico. Cada meridiano tem alguns
   pontos de referência ("âncoras") e os demais são distribuídos entre eles ao longo do trajeto.
@@ -29,6 +31,19 @@ MERIDIANS = [
     ("VG", "GV", "Vaso Governador", "#7800b4", "—", False),
     ("VC", "CV", "Vaso Concepção", "#9b42c7", "—", False),
 ]
+
+# Sigla antiga (escola francesa/brasileira) -> sigla chinesa usada no sistema
+PT_TO_CN = {"P": "LU", "IG": "LI", "E": "ST", "BP": "SP", "C": "HT", "ID": "SI", "B": "BL", "R": "KI",
+            "PC": "PC", "TA": "SJ", "VB": "GB", "F": "LR", "VG": "DU", "VC": "REN"}
+CN_TO_PT = {cn: pt for pt, cn in PT_TO_CN.items()}
+
+
+def to_cn(code):
+    """'VB20' -> 'GB20'. Códigos que não são de meridiano (OR-..., EX-...) ficam iguais."""
+    letters = code.rstrip("0123456789")
+    number = code[len(letters):]
+    return PT_TO_CN[letters] + number if number and letters in PT_TO_CN else code
+
 
 NAMES = {
     "P": "Zhongfu Yunmen Tianfu Xiabai Chize Kongzui Lieque Jingqu Taiyuan Yuji Shaoshang",
@@ -180,6 +195,7 @@ def auricular_points():
 
 def default_position(meridian, number):
     """Posição esquemática padrão de um ponto: (vista, x, y)."""
+    meridian = CN_TO_PT.get(meridian, meridian)
     if meridian == "OR":
         _gb, _name, x, y = AURICULAR[number - 1]
         return "ear", x, y
@@ -198,15 +214,16 @@ def all_points():
     """Os 361 pontos, prontos para gravar no banco."""
     points = []
     for code, intl, *_ in MERIDIANS:
+        cn = PT_TO_CN[code]
         for i, pinyin in enumerate(NAMES[code].split(), start=1):
             view, x, y = default_position(code, i)
-            points.append({"code": f"{code}{i}", "meridian": code, "number": i, "intl_code": f"{intl}{i}",
+            points.append({"code": f"{cn}{i}", "meridian": cn, "number": i, "intl_code": f"{intl}{i}",
                            "pinyin": pinyin, "view": view, "x": x, "y": y})
     return points
 
 
 def meridians_json():
-    return [{"code": c, "intl": i, "name": n, "color": col, "element": el, "bilateral": b}
+    return [{"code": PT_TO_CN[c], "intl": i, "name": n, "color": col, "element": el, "bilateral": b}
             for c, i, n, col, el, b in MERIDIANS] + [
         {"code": "OR", "intl": "GB/T 13734", "name": "Orelha (auriculoterapia)", "color": "#d9480f",
          "element": "—", "bilateral": False}]

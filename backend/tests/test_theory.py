@@ -5,11 +5,11 @@ from tests.test_admin import admin_client, new_patient
 
 def test_default_categories_are_textbook_classifications():
     c = default_categories()
-    assert "Yuan (fonte)" in c["P9"] and "Shu-Riacho (Terra)" in c["P9"] and "Hui (influência) – Vasos" in c["P9"]
+    assert "Yuan (fonte)" in c["LU9"] and "Shu-Riacho (Terra)" in c["LU9"] and "Hui (influência) – Vasos" in c["LU9"]
     assert "Luo (conexão)" in c["PC6"] and "Abertura – Yin Wei Mai" in c["PC6"]
-    assert "He-Mar (Terra)" in c["E36"] and "He inferior – Estômago" in c["E36"]
-    assert "Shu do dorso – Rim" in c["B23"] and "Mu frontal – Estômago" in c["VC12"]
-    assert "Jing-Poço (Madeira)" in c["P11"] and "Jing-Poço (Metal)" in c["IG1"]  # yin x yang
+    assert "He-Mar (Terra)" in c["ST36"] and "He inferior – Estômago" in c["ST36"]
+    assert "Shu do dorso – Rim" in c["BL23"] and "Mu frontal – Estômago" in c["REN12"]
+    assert "Jing-Poço (Madeira)" in c["LU11"] and "Jing-Poço (Metal)" in c["LI1"]  # yin x yang
     yuan = [k for k, v in c.items() if "Yuan (fonte)" in v]
     assert len(yuan) == 12
 
@@ -20,18 +20,18 @@ def test_everything_loads_seeded_data(tmp_path):
     assert len(d["points"]) == 361 + 79
     assert len([i for i in d["items"] if i["kind"] == "syndrome"]) == 36
     assert "Yuan (fonte)" in d["categories"]
-    p9 = next(p for p in d["points"] if p["code"] == "P9")
+    p9 = next(p for p in d["points"] if p["code"] == "LU9")
     assert "Yuan (fonte)" in p9["details"]["categories"]
 
 
 def test_point_technical_sheet_is_editable(tmp_path):
     c, h = admin_client(tmp_path)
-    r = c.patch("/api/admin/theory/points/IG4", headers=h, json={
+    r = c.patch("/api/admin/theory/points/LI4", headers=h, json={
         "name_pt": "Fundo do Vale", "location": "Dorso da mão",
         "details": {"functions": "Elimina vento", "needling_depth": "0,5–1 cun", "categories": ["Yuan (fonte)", "Ponto mestre da face"],
                     "lixo": "ignorado"}})
     assert r.status_code == 200
-    p = next(p for p in c.get("/api/admin/theory").get_json()["points"] if p["code"] == "IG4")
+    p = next(p for p in c.get("/api/admin/theory").get_json()["points"] if p["code"] == "LI4")
     assert p["name_pt"] == "Fundo do Vale" and p["location"] == "Dorso da mão"
     assert p["details"] == {"functions": "Elimina vento", "needling_depth": "0,5–1 cun",
                             "categories": ["Yuan (fonte)", "Ponto mestre da face"]}
@@ -42,20 +42,20 @@ def test_syndrome_symptom_and_combination_crud(tmp_path):
     c, h = admin_client(tmp_path)
     r = c.post("/api/admin/theory/syndrome", headers=h, json={
         "name": "Teste de padrão", "group_name": "Rim",
-        "data": {"tongue": "Vermelha sem saburra", "pulse": "Fino e rápido"}, "points": ["r3", "BP6", "INVALIDO"]})
+        "data": {"tongue": "Vermelha sem saburra", "pulse": "Fino e rápido"}, "points": ["ki3", "SP6", "INVALIDO"]})
     assert r.status_code == 201
     sid = r.get_json()["id"]
     r = c.post("/api/admin/theory/symptom", headers=h, json={
-        "name": "Suores noturnos", "data": {"syndromes": [sid, 99999]}, "points": ["C6"]})
+        "name": "Suores noturnos", "data": {"syndromes": [sid, 99999]}, "points": ["HT6"]})
     sym = r.get_json()["id"]
     r = c.post("/api/admin/theory/combination", headers=h, json={
-        "name": "Ansiedade básica", "data": {"indication": "Acalmar a mente"}, "points": ["VG20", "OR-TF4", "PC6"]})
+        "name": "Ansiedade básica", "data": {"indication": "Acalmar a mente"}, "points": ["DU20", "OR-TF4", "PC6"]})
     assert r.status_code == 201
     items = c.get("/api/admin/theory").get_json()["items"]
     syn = next(i for i in items if i["id"] == sid)
-    assert syn["points"] == ["R3", "BP6"] and syn["data"]["pulse"] == "Fino e rápido"
+    assert syn["points"] == ["KI3", "SP6"] and syn["data"]["pulse"] == "Fino e rápido"
     assert next(i for i in items if i["id"] == sym)["data"]["syndromes"] == [sid]  # id inexistente descartado
-    assert next(i for i in items if i["kind"] == "combination")["points"] == ["VG20", "OR-TF4", "PC6"]
+    assert next(i for i in items if i["kind"] == "combination")["points"] == ["DU20", "OR-TF4", "PC6"]
 
     assert c.patch(f"/api/admin/theory/syndrome/{sid}", headers=h, json={"name": "Padrão renomeado", "points": []}).status_code == 200
     # excluir o diagnóstico tira o vínculo do sintoma

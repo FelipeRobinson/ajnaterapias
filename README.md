@@ -43,7 +43,7 @@ O **Ajna Terapias** é o site do Instituto Ajna, um espaço de terapias integrat
 | | Parte | O que faz |
 |:-:|---|---|
 | 🌸 | **Site público** | Apresenta a clínica, a história, os serviços e os canais de contato (WhatsApp e Instagram). |
-| 🔒 | **CRM** | Área restrita com **login**. O administrador gerencia os clientes, e cada cliente acompanha as próprias consultas. |
+| 🔒 | **CRM** | Área restrita com **login**. O administrador gerencia os clientes, e cada cliente acompanha as próprias sessões. |
 
 > [!NOTE]
 > O site **não usa GitHub Pages**: como tem login e banco de dados, ele roda em um **servidor Python**, no seu computador ou em uma hospedagem.
@@ -71,8 +71,8 @@ O **Ajna Terapias** é o site do Instituto Ajna, um espaço de terapias integrat
 - 🧭 Cada perfil vai para a área certa automaticamente
 - 👤 Admin **cria acesso** de cliente (nome, e-mail, telefone, senha)
 - 🔁 Admin **redefine senha** e **ativa/desativa** clientes
-- 📊 Painel com totais de clientes e consultas do dia
-- 📅 Cliente vê **as próprias consultas**
+- 📊 Painel com totais de clientes e sessões do dia
+- 📅 Cliente vê **as próprias sessões**
 - 📋 **Prontuário** e **protocolo por sessão** (só administração)
 - 🧊 **Mapa de pontos**: corpo 3D feminino + orelha 2D (79 pontos), em tela cheia
 - 📚 **Parte teórica**: ficha dos pontos, diagnósticos, sintomas, combinações e **galeria da língua** com fotos
@@ -235,7 +235,7 @@ ajnaterapias/
 │   │       ├── auth.py          🔑 login, logout, "quem sou eu"
 │   │       ├── account.py       🔐 alteração de dados do admin por e-mail (sem tela no painel)
 │   │       ├── crm.py           🛠️ painel e gestão de clientes (admin)
-│   │       ├── patient.py       🙋 consultas do cliente
+│   │       ├── patient.py       🙋 sessões do cliente
 │   │       ├── records.py       📋 prontuário e protocolos (campos definidos aqui)
 │   │       ├── acupoints.py     ☯ mapa de pontos (editar, extras, uso nas sessões)
 │   │       ├── theory.py        📚 parte teórica (diagnósticos, sintomas, combinações)
@@ -349,11 +349,11 @@ Todas as rotas respondem em **JSON**. As que alteram dados exigem o cabeçalho `
 | 🟡 `POST` | `/api/auth/login` | 🌐 | Entra com `email` e `password` |
 | 🟢 `GET` | `/api/auth/me` | 🔑 | Dados de quem está logado |
 | 🟡 `POST` | `/api/auth/logout` | 🔑 | Sai da conta |
-| 🟢 `GET` | `/api/admin/dashboard` | 🛠️ | Totais de clientes ativos e consultas do dia |
+| 🟢 `GET` | `/api/admin/dashboard` | 🛠️ | Totais de clientes ativos e sessões do dia |
 | 🟢 `GET` | `/api/admin/patients` | 🛠️ | Lista os clientes |
 | 🟡 `POST` | `/api/admin/patients` | 🛠️ | Cria o acesso de um cliente |
 | 🟠 `PATCH` | `/api/admin/patients/<id>` | 🛠️ | Ativa/desativa ou troca a senha |
-| 🟢 `GET` | `/api/patient/me/appointments` | 🙋 | Consultas do cliente logado |
+| 🟢 `GET` | `/api/patient/me/appointments` | 🙋 | Sessões do cliente logado |
 | 🟢 `GET` | `/api/patient/availability?date=AAAA-MM-DD` | 🙋🛠️ | Horários ocupados (sem dados de terceiros) |
 
 <sub>🌐 público · 🔑 qualquer pessoa logada · 🛠️ só admin · 🙋 só cliente</sub>
@@ -369,7 +369,7 @@ Todas as rotas respondem em **JSON**. As que alteram dados exigem o cabeçalho `
 | 🛡️ | **CSRF** | Toda ação que altera dados exige um token da sessão |
 | 👮 | **Perfis** | Cada rota confere se é `admin` ou `patient` |
 | 🕵️ | **Login discreto** | Mesma mensagem e mesmo tempo de resposta para e-mail inexistente ou senha errada |
-| 💉 | **SQL injection** | Todas as consultas usam parâmetros (`?`) |
+| 💉 | **SQL injection** | Todas as consultas SQL usam parâmetros (`?`) |
 | 🧼 | **XSS** | Nomes e e-mails são escapados antes de aparecer na tela |
 | 🙈 | **Segredos fora do Git** | `.env` e `*.db` estão no `.gitignore` |
 
@@ -426,7 +426,7 @@ cd backend; ..\.venv\Scripts\python.exe -m pytest tests; cd ..
 | ✅ `test_duplicate_email_is_rejected` | E-mail repetido é recusado e o banco continua consistente |
 | ✅ `test_theory.py` | Parte teórica: classificações, ficha editável, diagnósticos/sintomas/combinações, galeria da língua e bloqueio para pacientes |
 
-Ao todo são **57 testes**.
+Ao todo são **59 testes**.
 
 ---
 
@@ -445,11 +445,12 @@ Ao todo são **57 testes**.
 - [x] 📆 Agenda em lista, semana (colunas) e mês (calendário), com o ano
 - [x] ⛔ Horários indisponíveis (bloqueiam o painel e o portal do cliente)
 - [x] 🚫 Atendimento só de terça a quinta; segunda, sexta, sábado e domingo fechados (exceção só pelo painel)
-- [x] 🌟 "Reiki Para Todos" no último sábado de cada mês, na agenda e na área do cliente
-- [x] 🔍 Janela do dia com linha do tempo, consultas, bloqueios e eventos
+- [x] 🌟 "Reiki voluntário" no último sábado de cada mês, na agenda e na área do cliente
+- [x] 🔍 Janela do dia com linha do tempo, sessões, bloqueios e eventos
 - [x] 🔐 Senha do admin só muda pelo link enviado ao e-mail
 - [x] ☰ Menu hambúrguer: faixa com logo no computador e botão no canto no celular
 - [x] 📷 Foto de perfil opcional (admin e clientes)
+- [x] 🎬 Boas-vindas no primeiro login: vídeo explicativo (admin) ou guia do cliente + formulário de dados pessoais (cliente)
 - [ ] 💬 Chat no site para o primeiro atendimento (sem login)
 - [x] 📋 Prontuário (ficha fixa) e protocolo por sessão, só para a administração
 - [x] ☯ Mapa interativo dos 361 pontos (OMS) ligado aos protocolos
@@ -463,7 +464,7 @@ Ao todo são **57 testes**.
 - [x] 💰 Financeiro: terapias e preços, recebimentos, pacotes de sessões, despesas e resumo anual
 - [x] 📈 Gráficos do financeiro: barras, saldo acumulado, resultado do mês e pizzas (categoria, forma, terapia, particular x social)
 - [x] 📄 Relatório financeiro com filtros (período, tipo, forma, categoria, terapia, cliente, origem, Ambulatório Social) em planilha (Excel) e PDF
-- [x] 🖨️ Relatórios do paciente: prontuário completo, ficha de anamnese e ficha de cada consulta (imprimir ou baixar PDF direto, gerado no servidor com xhtml2pdf)
+- [x] 🖨️ Relatórios do paciente: prontuário completo, ficha de anamnese e ficha de cada sessão (imprimir ou baixar PDF direto, gerado no servidor com xhtml2pdf)
 - [x] 🪪 Dados pessoais do cliente (CPF, endereço, contato de emergência…) editáveis por ele e pela clínica
 - [x] 📈 Relatório de acompanhamento do paciente (evolução, gráfico de intensidade, técnicas e pontos)
 - [x] 🤝 Ambulatório Social de Acupuntura: marca no paciente, terapia própria (R$ 50,00 · 60 min) e totais no financeiro

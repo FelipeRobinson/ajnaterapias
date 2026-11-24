@@ -390,8 +390,8 @@
     const { items } = await A().api("/api/admin/finance/packages");
     return `<section class="adm-card"><div class="adm-card__head"><h2>Pacotes de sessões</h2>
         <button class="adm-btn adm-btn--primary" data-fin-new="package" type="button">＋ Novo pacote</button></div>
-      <p class="adm-muted fin-help">Quando uma consulta do cliente é marcada como <b>realizada</b>, ela é descontada automaticamente do pacote
-        (da mesma terapia, ou de um pacote sem terapia definida). Cancelar a consulta devolve a sessão ao pacote.</p>
+      <p class="adm-muted fin-help">Quando uma sessão do cliente é marcada como <b>realizada</b>, ela é descontada automaticamente do pacote
+        (da mesma terapia, ou de um pacote sem terapia definida). Cancelar a sessão devolve a sessão ao pacote.</p>
       <div class="fin-rows">${items.map((k) => {
         const left = k.sessions_total - k.sessions_used;
         const pct = Math.min(100, (k.sessions_used / k.sessions_total) * 100);
@@ -428,7 +428,7 @@
   async function renderServices() {
     return `<section class="adm-card"><div class="adm-card__head"><h2>Terapias e preços</h2>
         <button class="adm-btn adm-btn--primary" data-fin-new="service" type="button">＋ Nova terapia</button></div>
-      <p class="adm-muted fin-help">O preço da terapia é sugerido ao agendar. Dá para mudar o valor de uma consulta específica.</p>
+      <p class="adm-muted fin-help">O preço da terapia é sugerido ao agendar. Dá para mudar o valor de uma sessão específica.</p>
       <div class="fin-rows">${st.services.map((s) => `<div class="fin-row ${s.active ? "" : "is-off"}">
         <span class="fin-row__who"><b>${s.social ? "🤝 " : ""}${esc(s.name)}</b><small>${s.active ? "Ativa" : "Desativada"}${s.social ? " · Ambulatório Social" : ""}</small></span>
         <span class="fin-row__val">${s.price_cents ? brl(s.price_cents) : '<span class="fin-warn">definir preço</span>'}</span>

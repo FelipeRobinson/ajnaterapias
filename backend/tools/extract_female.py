@@ -81,4 +81,3 @@ np.savez_compressed(D / "female_raw.npz",
                     **{f"bv{i}": v for i, (_, v, _) in enumerate(bones)},
                     **{f"bf{i}": f for i, (_, _, f) in enumerate(bones)})
 print("ossos", len(bones), "peças:", sorted(set(n.replace("_L", "").replace("_R", "") for n, _, _ in bones))[:40])
-

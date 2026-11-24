@@ -19,7 +19,8 @@ TABLES = [
         ("id", "INTEGER", "PK"), ("name", "TEXT", ""), ("email", "TEXT", "UK"), ("phone", "TEXT", ""),
         ("password_hash", "TEXT", ""), ("role", "TEXT  admin | patient", ""), ("active", "INTEGER 0/1", ""),
         ("avatar", "TEXT (foto opcional, data:image)", ""), ("social", "INTEGER 0/1 (Ambulatório Social)", ""),
-        ("profile", "TEXT (JSON: CPF, endereço, emergência…)", ""), ("created_at", "TEXT", ""),
+        ("profile", "TEXT (JSON: CPF, endereço, emergência…)", ""), ("onboarded_at", "TEXT (viu as boas-vindas)", ""),
+        ("created_at", "TEXT", ""),
     ], "Administradores e clientes (pacientes)"),
     ("appointments", "#d5e8d4", 420, 40, [
         ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users"), ("date", "TEXT AAAA-MM-DD", ""),
@@ -36,7 +37,7 @@ TABLES = [
         ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users"), ("service_id", "INTEGER", "FK→services"),
         ("sessions_total", "INTEGER", ""), ("price_cents", "INTEGER (centavos)", ""), ("notes", "TEXT", ""),
         ("created_at", "TEXT", ""),
-    ], "Financeiro: pacote de N sessões (usadas = consultas com package_id)"),
+    ], "Financeiro: pacote de N sessões (usadas = sessões com package_id)"),
     ("payments", "#fce4d6", 820, 1120, [
         ("id", "INTEGER", "PK"), ("patient_user_id", "INTEGER", "FK→users"),
         ("appointment_id", "INTEGER", "FK→appointments"), ("package_id", "INTEGER", "FK→packages"),
@@ -60,13 +61,13 @@ TABLES = [
         ("id", "INTEGER", "PK"), ("appointment_id", "INTEGER", "FK→appointments · UK"),
         ("patient_user_id", "INTEGER", "FK→users"), ("data", "TEXT (JSON, inclui acupoints[])", ""),
         ("created_at", "TEXT", ""), ("updated_at", "TEXT", ""), ("updated_by", "INTEGER", "FK→users"),
-    ], "Protocolo: 1 por consulta (pontos aplicados ficam em data.acupoints)"),
+    ], "Protocolo: 1 por sessão (pontos aplicados ficam em data.acupoints)"),
     ("acupoints", "#e1d5e7", 820, 400, [
         ("code", "TEXT", "PK"), ("meridian", "TEXT", ""), ("number", "INTEGER", ""), ("intl_code", "TEXT", ""),
         ("pinyin", "TEXT", ""), ("name_pt", "TEXT", ""), ("view", "TEXT front|back|ear", ""), ("x", "REAL", ""),
         ("y", "REAL", ""), ("location", "TEXT", ""), ("indications", "TEXT", ""), ("notes", "TEXT", ""),
         ("custom", "INTEGER 0/1", ""), ("updated_at", "TEXT", ""), ("pos3d", "TEXT (JSON {m|f: [x,y,z,nx,ny,nz]})", ""), ("details", "TEXT (JSON: funções, agulhamento, categorias…)", ""),
-    ], "Pontos: 361 OMS + 79 auriculares (meridian=OR) + extras; pos3d por corpo (m/f)"),
+    ], "Pontos: 361 (siglas chinesas LU…SJ, DU, REN) + 79 auriculares (meridian=OR) + extras; pos3d por corpo (m/f)"),
     ("account_changes", "#fff2cc", 820, 40, [
         ("id", "INTEGER", "PK"), ("user_id", "INTEGER", "FK→users"), ("token_hash", "TEXT", "UK"),
         ("payload", "TEXT (JSON)", ""), ("expires_at", "TEXT", ""), ("used", "INTEGER 0/1", ""),
@@ -83,7 +84,13 @@ TABLES = [
     ], "Parte teórica: diagnósticos MTC, sintomas, combinações e língua (foto em data.image)"),
     ("settings", "#f5f5f5", 1180, 400, [
         ("key", "TEXT", "PK"), ("value", "TEXT", ""),
-    ], "Configurações (ex.: primary_admin_id = Ellen)"),
+    ], "Configurações (primary_admin_id, closed_weekdays = dias sem atendimento, domingo fixo)"),
+    ("events", "#d5e8d4", 40, 780, [
+        ("id", "INTEGER", "PK"), ("title", "TEXT", ""), ("icon", "TEXT (emoji)", ""), ("description", "TEXT", ""),
+        ("date", "TEXT AAAA-MM-DD", ""), ("recurrence", "TEXT once|weekly|monthly|last_weekday|yearly", ""),
+        ("until", "TEXT AAAA-MM-DD", ""), ("start_time", "TEXT HH:MM", ""), ("end_time", "TEXT HH:MM", ""),
+        ("created_at", "TEXT", ""),
+    ], "Eventos da clínica para todos (ex.: Reiki voluntário), criados pela administração"),
 ]
 
 # (tabela de origem, coluna, tabela de destino, cardinalidade)

@@ -37,6 +37,7 @@
     loaded: false, tab: "points", data: null, byCode: {}, sel: null,
     f: { q: "", mer: "", cat: "", syn: "", used: false, filled: false },
     basket: JSON.parse(localStorage.getItem("ajna-basket") || "[]"),
+    pick: { q: "", mer: "", open: false }, // lista de pontos da cesta
   };
   const saveBasket = () => { localStorage.setItem("ajna-basket", JSON.stringify(st.basket)); renderBasketBadge(); };
 
@@ -44,6 +45,7 @@
     if (st.loaded && !force) return;
     st.data = await A().api("/api/admin/theory");
     st.byCode = Object.fromEntries(st.data.points.map((p) => [p.code, p]));
+    st.basket = st.basket.filter((c) => st.byCode[c]); // tira códigos que não existem mais (ex.: siglas antigas)
     st.loaded = true;
   }
   const items = (kind) => st.data.items.filter((i) => i.kind === kind);
@@ -372,14 +374,76 @@
     });
   }
 
-  function basketHtml() {
-    return `<div class="th-basket">
-      <b>🧺 Cesta atual</b>
-      <div class="th-links">${st.basket.map((c) => `<span class="th-basket__item">${chip(c)}<button data-th-unbasket="${esc(c)}" type="button" aria-label="Tirar">×</button></span>`).join("") || '<span class="adm-muted">Vazia. Abra um ponto e clique em “🧺 Adicionar à cesta”.</span>'}</div>
+  function basketTop() {
+    return `<b>🧺 Cesta atual${st.basket.length ? ` · ${st.basket.length} ponto(s)` : ""}</b>
+      <div class="th-links">${st.basket.map((c) => `<span class="th-basket__item">${chip(c)}<button data-th-unbasket="${esc(c)}" type="button" aria-label="Tirar">×</button></span>`).join("") || '<span class="adm-muted">Vazia. Marque os pontos na lista abaixo (ou abra um ponto e clique em “🧺 Adicionar à cesta”).</span>'}</div>
       ${st.basket.length ? `<div class="th-basket__actions"><button class="adm-btn adm-btn--sm adm-btn--primary" data-th-new="combination" type="button">Salvar como combinação</button>
-        <button class="adm-btn adm-btn--sm" data-th-empty type="button">Esvaziar</button></div>` : ""}
+        <button class="adm-btn adm-btn--sm" data-th-empty type="button">Esvaziar</button></div>` : ""}`;
+  }
+
+  // Lista de todos os pontos com caixinha: marcar = pôr na cesta, desmarcar = tirar.
+  function pickRows() {
+    const q = norm(st.pick.q);
+    const words = q.split(/\s+/).filter(Boolean);
+    const list = st.data.points.filter((p) => (!st.pick.mer || p.meridian === st.pick.mer)
+      && words.every((w) => norm([p.code, p.pinyin, p.name_pt, p.intl_code].join(" ")).includes(w)));
+    // ordem tradicional dos meridianos (LU, LI, ST…), depois orelha e extras
+    const order = Object.fromEntries((A().meridians() || []).map((m, i) => [m.code, i]));
+    list.sort((a, b) => (order[a.meridian] ?? 99) - (order[b.meridian] ?? 99) || (a.number ?? 0) - (b.number ?? 0) || a.code.localeCompare(b.code));
+    if (!list.length) return '<p class="adm-empty">Nenhum ponto encontrado.</p>';
+    return list.map((p) => `
+      <label class="th-pick ${st.basket.includes(p.code) ? "is-on" : ""}">
+        <input type="checkbox" data-th-pick="${esc(p.code)}" ${st.basket.includes(p.code) ? "checked" : ""}>
+        <span class="th-pick__code" style="--c:${color(p.code)}">${esc(p.code)}</span>
+        <span class="th-pick__name">${esc(p.pinyin)}${p.name_pt ? ` <small>${esc(p.name_pt)}</small>` : ""}</span>
+      </label>`).join("");
+  }
+
+  function basketHtml() {
+    const mers = A().meridians() || [];
+    return `<div class="th-basket">
+      <div id="th-basket-top">${basketTop()}</div>
+      <details class="th-picker" id="th-picker" ${st.pick.open ? "open" : ""}>
+        <summary>📋 Lista de pontos — marque para pôr na cesta</summary>
+        <div class="th-picker__bar">
+          <input class="adm-search" data-th-pick-q value="${esc(st.pick.q)}" placeholder="Buscar código, pinyin ou nome (ex.: LI4, Hegu)…" aria-label="Buscar ponto">
+          <select class="adm-select" data-th-pick-mer aria-label="Meridiano">
+            <option value="">Todos os meridianos</option>
+            ${mers.map((m) => `<option value="${esc(m.code)}" ${st.pick.mer === m.code ? "selected" : ""}>${esc(m.code)} · ${esc(m.name)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="th-picker__list" id="th-pick-list">${pickRows()}</div>
+      </details>
     </div>`;
   }
+
+  function refreshBasket() {
+    const top = $("#th-basket-top");
+    if (top) top.innerHTML = basketTop();
+  }
+
+  document.addEventListener("input", (e) => {
+    if (!e.target.matches?.("[data-th-pick-q]")) return;
+    st.pick.q = e.target.value;
+    $("#th-pick-list").innerHTML = pickRows();
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.matches?.("[data-th-pick-mer]")) {
+      st.pick.mer = e.target.value;
+      $("#th-pick-list").innerHTML = pickRows();
+      return;
+    }
+    const box = e.target.closest?.("[data-th-pick]");
+    if (!box) return;
+    const c = box.dataset.thPick;
+    st.basket = box.checked ? [...new Set([...st.basket, c])] : st.basket.filter((x) => x !== c);
+    box.closest(".th-pick").classList.toggle("is-on", box.checked);
+    saveBasket();
+    refreshBasket();
+  });
+  document.addEventListener("toggle", (e) => {
+    if (e.target.id === "th-picker") st.pick.open = e.target.open;
+  }, true);
 
   // ---------------------------------------------------------------- cliques
   function onClick(e) {

@@ -1,4 +1,4 @@
-/* Área do cliente: início, pedir horário, consultas e meus dados. */
+/* Área do cliente: início, agendar sessão, sessões e meus dados. */
 (() => {
   "use strict";
 
@@ -56,7 +56,7 @@
 
   // ---------------------------------------------------------------- estado e navegação
   const state = { view: "home", me: null, items: [], tab: "upcoming", info: null, day: null, slot: null };
-  const TITLES = { home: null, book: "Pedir horário", appointments: "Minhas consultas", profile: "Meus dados" };
+  const TITLES = { home: null, book: "Agendar Sessão", appointments: "Minhas sessões", profile: "Meus dados" };
 
   function show(view) {
     if (!(view in TITLES)) view = "home";
@@ -79,7 +79,7 @@
     if (nav) show(nav.dataset.view || nav.dataset.goto);
   });
 
-  // ---------------------------------------------------------------- consultas (dados)
+  // ---------------------------------------------------------------- sessões (dados)
   async function fetchAppointments() {
     const data = await api("/api/patient/me/appointments");
     state.items = data.items;
@@ -113,11 +113,11 @@
     const btn = event.target.closest("[data-cancel]");
     if (!btn) return;
     const a = state.items.find((x) => x.id == btn.dataset.cancel);
-    const label = a.status === "requested" ? "Desistir do pedido?" : "Cancelar consulta?";
+    const label = a.status === "requested" ? "Desistir do pedido?" : "Cancelar sessão?";
     if (!(await confirmAction(label, `${cap(fmt(fromIso(a.date), { weekday: "long", day: "numeric", month: "long" }))}, às ${a.start}.`, "Sim, cancelar"))) return;
     try {
       await api(`/api/patient/appointments/${a.id}/cancel`, { method: "POST" });
-      toast(a.status === "requested" ? "Pedido retirado." : "Consulta cancelada.");
+      toast(a.status === "requested" ? "Pedido retirado." : "Sessão cancelada.");
       show(state.view);
     } catch (err) { toast(err.message, true); }
   });
@@ -128,21 +128,21 @@
     const upcoming = state.items.filter(isUpcoming);
     const next = upcoming[0];
     $("#next-card").innerHTML = next ? `
-      <p class="cli-hero__label">${next.status === "requested" ? "Seu pedido de horário" : "Sua próxima consulta"}</p>
+      <p class="cli-hero__label">${next.status === "requested" ? "Seu pedido de horário" : "Sua próxima sessão"}</p>
       <h2>${cap(fmt(fromIso(next.date), { weekday: "long", day: "numeric", month: "long" }))}</h2>
       <p class="cli-hero__time">${esc(next.start)} às ${esc(next.end)}</p>
       <span class="adm-badge adm-badge--${next.status}">${STATUS[next.status]}</span>` : `
-      <p class="cli-hero__label">Nenhuma consulta marcada</p>
+      <p class="cli-hero__label">Nenhuma sessão marcada</p>
       <h2>Que tal reservar um momento para você? 🌿</h2>
-      <button class="adm-btn cli-hero__btn" data-goto="book" type="button">＋ Pedir horário</button>`;
+      <button class="adm-btn cli-hero__btn" data-goto="book" type="button">＋ Agendar Sessão</button>`;
     $("#home-upcoming").innerHTML = upcoming.slice(0, 3).map(row).join("")
-      || '<p class="adm-empty">Você ainda não tem consultas futuras.</p>';
-    // Eventos abertos a todos (ex.: Reiki Para Todos, no último sábado do mês)
+      || '<p class="adm-empty">Você ainda não tem sessões futuras.</p>';
+    // Eventos abertos a todos (ex.: Reiki voluntário, no último sábado do mês)
     try {
       const { items } = await api("/api/patient/events");
       $("#home-events").innerHTML = items.slice(0, 3).map((e, i) => `
-        <div class="ag-event ${i === 0 ? "ag-event--big" : ""}">${e.icon} <b>${esc(e.title)}</b> · ${cap(fmt(fromIso(e.date), { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}
-          ${i === 0 ? `<span>${esc(e.description)}</span>` : ""}</div>`).join("") || '<p class="adm-empty">Nenhum evento programado.</p>';
+        <div class="ag-event ${i === 0 ? "ag-event--big" : ""}">${esc(e.icon)} <b>${esc(e.title)}</b> · ${cap(fmt(fromIso(e.date), { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}${e.start_time ? ` · ${esc(e.start_time)}${e.end_time ? `–${esc(e.end_time)}` : ""}` : ""}
+          ${i === 0 && e.description ? `<span>${esc(e.description)}</span>` : ""}</div>`).join("") || '<p class="adm-empty">Nenhum evento programado.</p>';
     } catch { $("#home-events").innerHTML = ""; }
   }
 
@@ -210,7 +210,7 @@
     }
   });
 
-  // ---------------------------------------------------------------- consultas (tela)
+  // ---------------------------------------------------------------- sessões (tela)
   async function loadAppointments() {
     await fetchAppointments();
     renderAppointments();
@@ -222,10 +222,10 @@
     const list = state.tab === "upcoming" ? upcoming : past;
     $$(".cli-tab").forEach((t) => t.classList.toggle("is-active", t.dataset.tab === state.tab));
     $("#appointment-list").innerHTML = list.map(row).join("") || `<p class="adm-empty">${state.tab === "upcoming"
-      ? 'Nenhuma consulta marcada. <button class="adm-btn adm-btn--link" data-goto="book" type="button">Pedir horário →</button>'
+      ? 'Nenhuma sessão marcada. <button class="adm-btn adm-btn--link" data-goto="book" type="button">Agendar Sessão →</button>'
       : "Seu histórico aparecerá aqui."}</p>`;
     $("#cancel-rule").textContent = state.tab === "upcoming"
-      ? `Consultas confirmadas podem ser canceladas aqui até ${state.cancelHours}h antes. Depois disso, fale com a clínica.` : "";
+      ? `Sessões confirmadas podem ser canceladas aqui até ${state.cancelHours}h antes. Depois disso, fale com a clínica.` : "";
   }
 
   $$(".cli-tab").forEach((t) => t.addEventListener("click", () => { state.tab = t.dataset.tab; renderAppointments(); }));

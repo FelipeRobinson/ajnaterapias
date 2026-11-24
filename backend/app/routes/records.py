@@ -1,7 +1,7 @@
-"""Prontuário (ficha fixa) e protocolo de atendimento (a cada consulta).
+"""Prontuário (ficha fixa) e protocolo de atendimento (a cada sessão).
 
 SOMENTE o administrador acessa. O cliente nunca vê estas informações:
-na área dele aparecem apenas data, horário e situação das próprias consultas.
+na área dele aparecem apenas data, horário e situação das próprias sessões.
 
 Para acrescentar/alterar campos, edite RECORD_FORM ou PROTOCOL_FORM abaixo:
 o painel monta os formulários automaticamente a partir daqui.
@@ -170,7 +170,7 @@ def save_profile(patient_id):
 @records_bp.get("/patients/<int:patient_id>/file")
 @_admin
 def patient_file(patient_id):
-    """Tudo da ficha do paciente: dados, prontuário e lista de consultas com o protocolo de cada uma."""
+    """Tudo da ficha do paciente: dados, prontuário e lista de sessões com o protocolo de cada uma."""
     db = get_db()
     patient = _patient(db, patient_id)
     if not patient:
@@ -217,9 +217,9 @@ def save_protocol(appointment_id):
     db = get_db()
     appt = db.execute("SELECT id, patient_user_id, status FROM appointments WHERE id = ?", (appointment_id,)).fetchone()
     if not appt:
-        return jsonify(error="Consulta não encontrada."), 404
+        return jsonify(error="Sessão não encontrada."), 404
     if appt["status"] in ("cancelled", "requested"):
-        return jsonify(error="Só é possível preencher o protocolo de consultas confirmadas ou realizadas."), 400
+        return jsonify(error="Só é possível preencher o protocolo de sessões confirmadas ou realizadas."), 400
     codes = known_codes(db)
     data = json.dumps(_clean(PROTOCOL_FORM, request.get_json(silent=True) or {}, codes), ensure_ascii=False)
     now = _now()
@@ -231,7 +231,7 @@ def save_protocol(appointment_id):
                       (appointment_id, patient_user_id, data, created_at, updated_at, updated_by)
                       VALUES (?, ?, ?, ?, ?, ?)""",
                    (appointment_id, appt["patient_user_id"], data, now, now, session["user_id"]))
-    # Preencher o protocolo de uma consulta confirmada marca a consulta como realizada.
+    # Preencher o protocolo de uma sessão confirmada marca a sessão como realizada.
     if appt["status"] == "scheduled":
         db.execute("UPDATE appointments SET status = 'done' WHERE id = ?", (appointment_id,))
     db.commit()

@@ -60,7 +60,7 @@ def test_agenda_flow(tmp_path):
     # cliente com histórico não pode ser excluído
     assert c.delete(f"/api/admin/patients/{pid}", headers=h).status_code == 409
 
-    # o próprio cliente vê a consulta
+    # o próprio cliente vê a sessão
     cli = c.application.test_client()
     cli.post("/api/auth/login", json={"email": "ana@x.com", "password": "12345678"})
     mine = cli.get("/api/patient/me/appointments").get_json()["items"]

@@ -56,7 +56,11 @@
     paintTheme();
   });
   paintTheme();
-  nav.append(themeBtn);
+  // rodapé do menu: vídeo explicativo + tema
+  const navFoot = document.createElement("div");
+  navFoot.className = "adm-nav__foot";
+  navFoot.append(themeBtn);
+  nav.append(navFoot);
 
   // bolinha no ☰ quando há pedidos pendentes (contador da "Visão geral")
   const syncDot = () => {
@@ -160,6 +164,123 @@
     topAvatar.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPhoto(); } });
   }
 
+
+  // ---------------------------------------------------------------- boas-vindas (primeiro login)
+  // Administração: vídeo do sistema. Cliente: guia do cliente + formulário de dados pessoais
+  // (se a clínica já preencheu, aparece como preenchido para ele só conferir).
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const onb = document.createElement("dialog");
+  onb.className = "adm-modal onb-modal";
+  document.body.append(onb);
+  let onbUser = null;
+
+  async function api(url, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (options.body !== undefined) headers["Content-Type"] = "application/json";
+    if (me.csrf) headers["X-CSRF-Token"] = me.csrf;
+    const res = await fetch(url, { credentials: "same-origin", ...options, headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined });
+    const data = res.status === 204 ? null : await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || "Não foi possível concluir a ação.");
+    return data;
+  }
+
+  function videoStep(isClient, firstTime) {
+    const total = isClient && firstTime ? 2 : 1;
+    onb.innerHTML = `
+      <div class="onb">
+        <div class="onb__head">
+          <div>
+            <p class="adm-eyebrow">${!firstTime ? "Vídeo explicativo" : total > 1 ? `Boas-vindas · passo 1 de ${total}` : "Boas-vindas"}</p>
+            <h2>${firstTime ? `Olá, ${esc((onbUser.name || "").split(" ")[0])}! 💜` : "Como usar o sistema"}</h2>
+            <p class="adm-muted">${isClient
+              ? "Veja em poucos minutos como usar a sua área do cliente: agendar sessões, acompanhar sessões e manter seus dados em dia."
+              : "Um passeio pelo sistema: agenda, clientes, prontuário, mapa de pontos e financeiro."}</p>
+          </div>
+          ${firstTime ? "" : '<button class="adm-nav__close onb__x" type="button" data-onb-close aria-label="Fechar"></button>'}
+        </div>
+        ${onbUser.has_video
+          ? `<video class="onb__video" controls preload="metadata" playsinline poster="/api/auth/onboarding/poster"
+               src="/api/auth/onboarding/video"></video>`
+          : '<p class="adm-empty">O vídeo ainda não está disponível.</p>'}
+        <div class="adm-form__actions onb__actions">
+          ${firstTime && isClient
+            ? '<button class="adm-btn adm-btn--primary" data-onb-next type="button">Continuar →</button>'
+            : firstTime ? '<button class="adm-btn adm-btn--primary" data-onb-finish type="button">✓ Entendi, começar</button>'
+            : '<button class="adm-btn adm-btn--primary" data-onb-close type="button">Fechar</button>'}
+        </div>
+      </div>`;
+  }
+
+  async function formStep() {
+    const p = await api("/api/patient/me");
+    const filled = Object.values(p.profile || {}).some(Boolean);
+    const val = (k) => esc(p.profile?.[k] || "");
+    onb.innerHTML = `
+      <form class="onb adm-form" id="onb-form" novalidate>
+        <div class="onb__head"><div>
+          <p class="adm-eyebrow">Boas-vindas · passo 2 de 2</p>
+          <h2>🪪 Seus dados pessoais</h2>
+          ${filled
+            ? '<p class="onb__done">✅ <b>Já preenchido pela clínica.</b> Confira se está tudo certo e corrija o que precisar.</p>'
+            : '<p class="adm-muted">Preencha o que quiser agora — nenhum campo é obrigatório. Só você e a clínica veem estas informações.</p>'}
+        </div></div>
+        <div class="onb__fields">${p.profile_fields.map((sec) => `
+          <fieldset class="cli-fieldset"><legend>${sec.icon} ${esc(sec.title)}</legend>
+            <div class="cli-fields">${sec.fields.map((f) => `<label>${esc(f.label)}${f.type === "select"
+              ? `<select name="${f.key}"><option value="">—</option>${f.options.map((o) => `<option ${o === p.profile?.[f.key] ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`
+              : `<input name="${f.key}" type="${f.type === "date" ? "date" : "text"}" value="${val(f.key)}" ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ""}
+                  ${f.type === "cpf" ? 'data-mask="cpf" inputmode="numeric"' : f.type === "cep" ? 'data-mask="cep" inputmode="numeric"' : ""}>`}</label>`).join("")}</div>
+          </fieldset>`).join("")}</div>
+        <p class="adm-form__error" role="alert"></p>
+        <div class="adm-form__actions onb__actions">
+          <button class="adm-btn adm-btn--ghost" data-onb-finish type="button">Preencher depois</button>
+          <button class="adm-btn adm-btn--primary" type="submit">${filled ? "✓ Está tudo certo" : "Salvar e começar"}</button>
+        </div>
+      </form>`;
+    const form = onb.querySelector("#onb-form");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const profile = {};
+      p.profile_fields.flatMap((s) => s.fields).forEach((f) => { profile[f.key] = form.elements[f.key].value; });
+      try {
+        await api("/api/patient/me", { method: "PATCH", body: { profile } });
+        await finish();
+      } catch (err) { form.querySelector(".adm-form__error").textContent = err.message; }
+    });
+    onb.scrollTop = 0;
+  }
+
+  async function finish() {
+    onb.querySelector("video")?.pause();
+    try { await api("/api/auth/onboarding/done", { method: "POST", body: {} }); } catch { /* tenta de novo no próximo login */ }
+    onbUser.onboarded = true;
+    onb.close();
+    if (location.hash === "#profile") location.reload();
+  }
+
+  onb.addEventListener("click", (e) => {
+    if (e.target.closest("[data-onb-next]")) { onb.querySelector("video")?.pause(); formStep().catch(() => finish()); }
+    else if (e.target.closest("[data-onb-finish]")) finish();
+    else if (e.target.closest("[data-onb-close]")) { onb.querySelector("video")?.pause(); onb.close(); }
+  });
+  // no primeiro acesso a janela não fecha com Esc (precisa escolher um botão)
+  onb.addEventListener("cancel", (e) => { if (!onbUser?.onboarded) e.preventDefault(); else onb.querySelector("video")?.pause(); });
+
+  function openOnboarding(firstTime) {
+    if (!onbUser) return;
+    videoStep(onbUser.role === "patient", firstTime);
+    onb.showModal();
+  }
+
+  // link no menu para rever o vídeo quando quiser
+  const videoBtn = document.createElement("button");
+  videoBtn.type = "button";
+  videoBtn.className = "adm-theme adm-video-btn";
+  videoBtn.innerHTML = '<span class="adm-nav__icon" aria-hidden="true">🎬</span><span>Vídeo explicativo</span>';
+  videoBtn.addEventListener("click", () => { document.body.classList.remove("nav-open"); openOnboarding(false); });
+  navFoot.prepend(videoBtn);
+
   window.AjnaShell = {
     paintAvatar,
     avatarHtml,
@@ -171,6 +292,9 @@
       me.avatar = user.avatar || null;
       me.csrf = user.csrf_token || "";
       paintAvatar(topAvatar, me.name, me.avatar);
+      onbUser = user;
+      if (!user.onboarded) openOnboarding(true);  // primeiro login: boas-vindas
     },
+    openOnboarding,
   };
 })();

@@ -1,4 +1,4 @@
-"""Prontuário (ficha fixa) e protocolo (a cada consulta): só o administrador acessa."""
+"""Prontuário (ficha fixa) e protocolo (a cada sessão): só o administrador acessa."""
 from datetime import date
 
 from tests.test_admin import admin_client, new_patient
@@ -36,14 +36,14 @@ def test_protocol_per_session_marks_done(tmp_path):
     c, h, pid, aid = setup(tmp_path)
     r = c.put(f"/api/admin/appointments/{aid}/protocol", headers=h,
               json={"techniques": ["Acupuntura", "Ventosaterapia"], "pain_before": 7, "pain_after": 3,
-                    "points": "VB34, B23"})
+                    "points": "GB34, BL23"})
     assert r.status_code == 200
     s = c.get(f"/api/admin/patients/{pid}/file").get_json()["sessions"][0]
     assert s["status"] == "done"
     assert s["protocol"]["techniques"] == ["Acupuntura", "Ventosaterapia"]
     assert s["protocol"]["pain_after"] == 3
 
-    # consulta com protocolo não pode ser excluída
+    # sessão com protocolo não pode ser excluída
     assert c.delete(f"/api/admin/appointments/{aid}", headers=h).status_code == 409
     items = c.get(f"/api/admin/appointments?from={date.today()}&to={date.today()}").get_json()["items"]
     assert items[0]["has_protocol"] == 1

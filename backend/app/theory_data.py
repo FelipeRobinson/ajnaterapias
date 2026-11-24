@@ -4,9 +4,6 @@ Contém só classificações objetivas e padronizadas (qual ponto é Yuan, Luo, 
 Textos clínicos (funções, indicações, sinais, causas…) NÃO vêm prontos: a clínica escreve.
 """
 
-INTL_TO_PT = {"LU": "P", "LI": "IG", "ST": "E", "SP": "BP", "HT": "C", "SI": "ID", "BL": "B",
-              "KI": "R", "PC": "PC", "TE": "TA", "GB": "VB", "LR": "F", "GV": "VG", "CV": "VC"}
-
 # Cinco pontos Shu: Jing-poço, Ying-nascente, Shu-riacho, Jing-rio, He-mar
 FIVE_SHU = {
     "P": (11, 10, 9, 8, 5), "IG": (1, 2, 3, 5, 11), "E": (45, 44, 43, 41, 36), "BP": (1, 2, 3, 5, 9),
@@ -39,7 +36,8 @@ WINDOW_OF_SKY = ["E9", "IG18", "TA16", "B10", "P3", "VC22", "VG16", "ID16", "ID1
 def default_categories():
     """{código: [categorias]} com as classificações padrão."""
     cats = {}
-    add = lambda code, label: cats.setdefault(code, []).append(label)
+    from .acupoints_data import to_cn  # tabelas acima usam as siglas antigas; o sistema usa as chinesas
+    add = lambda code, label: cats.setdefault(to_cn(code), []).append(label)
     for m, nums in FIVE_SHU.items():
         elems = ELEM_YIN if m in YIN else ELEM_YANG
         for i, n in enumerate(nums):

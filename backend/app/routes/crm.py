@@ -1,11 +1,13 @@
 """Rotas do painel do administrador: visão geral, clientes e agenda."""
+import json
 import re
 from datetime import date, datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash
 
-from ..calendar_rules import is_closed
+from ..calendar_rules import (RECURRENCES, SUNDAY, WEEKDAY_NAMES, closed_weekdays, is_closed,
+                              save_closed_weekdays)
 from ..database import IntegrityError, get_db
 from .finance import apply_package
 from ..security import csrf_required, login_required, roles_required
@@ -153,13 +155,13 @@ def update_patient(user_id):
 @_admin
 @csrf_required
 def delete_patient(user_id):
-    """Exclui o cliente. Quem já tem consultas não é apagado (para não perder histórico): desative."""
+    """Exclui o cliente. Quem já tem sessões não é apagado (para não perder histórico): desative."""
     db = get_db()
     has_history = db.execute(
         "SELECT COUNT(*) AS n FROM appointments WHERE patient_user_id = ?", (user_id,)
     ).fetchone()["n"]
     if has_history:
-        return jsonify(error="Este cliente tem consultas registradas. Desative o acesso em vez de excluir."), 409
+        return jsonify(error="Este cliente tem sessões registradas. Desative o acesso em vez de excluir."), 409
     db.execute("DELETE FROM medical_records WHERE patient_user_id = ?", (user_id,))
     db.execute("DELETE FROM password_resets WHERE user_id = ?", (user_id,))
     db.execute("DELETE FROM users WHERE id = ? AND role = 'patient'", (user_id,))
@@ -170,7 +172,7 @@ def delete_patient(user_id):
 # ---------------------------------------------------------------- agenda
 
 def _read_appointment(payload, partial=False):
-    """Valida os campos de uma consulta. Retorna (dados, erro)."""
+    """Valida os campos de uma sessão. Retorna (dados, erro)."""
     data = {}
     if not partial or "patient_user_id" in payload:
         try:
@@ -218,7 +220,7 @@ def _fill_price(db, data):
 
 
 def _conflict(db, day, start, end, ignore_id=None):
-    """Existe outra consulta ativa no mesmo dia que se sobrepõe ao horário?"""
+    """Existe outra sessão ativa no mesmo dia que se sobrepõe ao horário?"""
     return db.execute(
         """SELECT COUNT(*) AS n FROM appointments
            WHERE date = ? AND status != 'cancelled' AND start < ? AND "end" > ? AND id != ?""",
@@ -267,7 +269,7 @@ def create_block():
         day = (date.fromisoformat(first) + timedelta(days=n)).isoformat()
         db.execute('INSERT INTO schedule_blocks (date, start, "end", reason) VALUES (?, ?, ?, ?)', (day, start, end, reason))
     db.commit()
-    # Avisa se ficou alguma consulta dentro do período (a clínica decide se remarca).
+    # Avisa se ficou alguma sessão dentro do período (a clínica decide se remarca).
     clash = db.execute(
         """SELECT COUNT(*) AS n FROM appointments WHERE date BETWEEN ? AND ? AND status IN ('requested', 'scheduled')
            AND start < ? AND "end" > ?""", (first, last, end, start)).fetchone()["n"]
@@ -282,6 +284,129 @@ def delete_block(block_id):
     db.execute("DELETE FROM schedule_blocks WHERE id = ?", (block_id,))
     db.commit()
     return "", 204
+
+
+# ---------------------------------------------------------------- dias de atendimento
+@crm_bp.get("/calendar-settings")
+@_admin
+def calendar_settings():
+    """Dias da semana sem atendimento. Domingo é fixo; segunda a sábado a administração escolhe."""
+    return jsonify(closed_weekdays=list(closed_weekdays()), weekday_names=WEEKDAY_NAMES, fixed=[SUNDAY],
+                   recurrences=RECURRENCES)
+
+
+@crm_bp.put("/calendar-settings")
+@_admin
+@csrf_required
+def save_calendar_settings():
+    days = (request.get_json(silent=True) or {}).get("closed_weekdays")
+    if not isinstance(days, list):
+        return jsonify(error="Informe a lista de dias sem atendimento."), 400
+    db = get_db()
+    saved = save_closed_weekdays(db, days)
+    db.commit()
+    return jsonify(ok=True, closed_weekdays=list(saved))
+
+
+# ---------------------------------------------------------------- eventos da clínica (aparecem para todos)
+def _read_event(payload):
+    title = str(payload.get("title") or "").strip()[:80]
+    if not title:
+        return None, "Dê um nome ao evento."
+    if not _valid_date(payload.get("date")):
+        return None, "Escolha a data do evento."
+    rec = payload.get("recurrence") or "once"
+    if rec not in RECURRENCES:
+        return None, "Repetição inválida."
+    until = payload.get("until") or None
+    if until and (not _valid_date(until) or until < payload["date"]):
+        return None, "A data final da repetição precisa ser depois da data do evento."
+    times = []
+    for k in ("start_time", "end_time"):
+        v = str(payload.get(k) or "").strip()
+        if v and not TIME_RE.match(v):
+            return None, "Horário inválido."
+        times.append(v or None)
+    if times[0] and times[1] and times[1] <= times[0]:
+        return None, "O horário de término precisa ser depois do início."
+    return {"title": title, "icon": (str(payload.get("icon") or "").strip()[:8] or "📅"),
+            "description": str(payload.get("description") or "").strip()[:500] or None,
+            "date": payload["date"], "recurrence": rec, "until": until if rec != "once" else None,
+            "start_time": times[0], "end_time": times[1]}, None
+
+
+@crm_bp.get("/events")
+@_admin
+def list_events():
+    rows = get_db().execute("SELECT * FROM events ORDER BY date, title").fetchall()
+    return jsonify(items=[dict(r) for r in rows], recurrences=RECURRENCES)
+
+
+@crm_bp.post("/events")
+@_admin
+@csrf_required
+def create_event():
+    data, error = _read_event(request.get_json(silent=True) or {})
+    if error:
+        return jsonify(error=error), 400
+    db = get_db()
+    db.execute(f"INSERT INTO events ({', '.join(data)}, created_at) VALUES ({', '.join('?' * len(data))}, ?)",
+               (*data.values(), datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    db.commit()
+    return jsonify(ok=True), 201
+
+
+@crm_bp.put("/events/<int:event_id>")
+@_admin
+@csrf_required
+def update_event(event_id):
+    db = get_db()
+    if not db.execute("SELECT 1 FROM events WHERE id = ?", (event_id,)).fetchone():
+        return jsonify(error="Evento não encontrado."), 404
+    data, error = _read_event(request.get_json(silent=True) or {})
+    if error:
+        return jsonify(error=error), 400
+    db.execute(f"UPDATE events SET {', '.join(f'{k} = ?' for k in data)} WHERE id = ?", (*data.values(), event_id))
+    db.commit()
+    return jsonify(ok=True)
+
+
+@crm_bp.delete("/events/<int:event_id>")
+@_admin
+@csrf_required
+def delete_event(event_id):
+    db = get_db()
+    db.execute("DELETE FROM events WHERE id = ?", (event_id,))
+    db.commit()
+    return "", 204
+
+
+# ---------------------------------------------------------------- aniversários dos clientes (só administração)
+@crm_bp.get("/birthdays")
+@_admin
+def birthdays():
+    """Aniversários dos clientes ativos entre duas datas (vem da data de nascimento em "Dados pessoais")."""
+    start, end = request.args.get("from", ""), request.args.get("to", "")
+    if not (_valid_date(start) and _valid_date(end)) or end < start:
+        return jsonify(error="Período inválido."), 400
+    first, last = date.fromisoformat(start), date.fromisoformat(end)
+    if (last - first).days > 800:
+        return jsonify(error="Período inválido."), 400
+    out = []
+    for r in get_db().execute(
+            "SELECT id, name, profile FROM users WHERE role = 'patient' AND active = 1 AND profile IS NOT NULL").fetchall():
+        try:
+            born = date.fromisoformat((json.loads(r["profile"]) or {}).get("birth_date") or "")
+        except (ValueError, TypeError, AttributeError):
+            continue
+        for year in range(first.year, last.year + 1):
+            try:
+                d = born.replace(year=year)
+            except ValueError:  # 29 de fevereiro em ano comum -> 28
+                d = date(year, 2, 28)
+            if first <= d <= last and year >= born.year:
+                out.append({"date": d.isoformat(), "patient_id": r["id"], "name": r["name"], "age": year - born.year})
+    return jsonify(items=sorted(out, key=lambda b: (b["date"], b["name"])))
 
 
 @crm_bp.get("/appointments")
@@ -316,11 +441,11 @@ def create_appointment():
                       (data["patient_user_id"],)).fetchone():
         return jsonify(error="Cliente não encontrado ou desativado."), 400
     if _conflict(db, data["date"], data["start"], data["end"]):
-        return jsonify(error="Já existe uma consulta nesse horário."), 409
+        return jsonify(error="Já existe uma sessão nesse horário."), 409
     if _blocked(db, data["date"], data["start"], data["end"]):
         return jsonify(error="Esse horário está marcado como indisponível. Libere-o na agenda antes de agendar."), 409
     if is_closed(date.fromisoformat(data["date"])) and not (request.get_json(silent=True) or {}).get("force"):
-        return jsonify(error="Esse é um dia sem atendimento (só há atendimento de terça a quinta).", closed_day=True), 409
+        return jsonify(error="Esse é um dia sem atendimento.", closed_day=True), 409
     error = _fill_price(db, data)
     if error:
         return jsonify(error=error), 400
@@ -340,7 +465,7 @@ def update_appointment(appointment_id):
     db = get_db()
     current = db.execute("SELECT * FROM appointments WHERE id = ?", (appointment_id,)).fetchone()
     if not current:
-        return jsonify(error="Consulta não encontrada."), 404
+        return jsonify(error="Sessão não encontrada."), 404
     data, error = _read_appointment(request.get_json(silent=True) or {}, partial=True)
     if error:
         return jsonify(error=error), 400
@@ -350,13 +475,13 @@ def update_appointment(appointment_id):
     if merged["end"] <= merged["start"]:
         return jsonify(error="O horário de término precisa ser depois do início."), 400
     if merged["status"] != "cancelled" and _conflict(db, merged["date"], merged["start"], merged["end"], appointment_id):
-        return jsonify(error="Já existe uma consulta nesse horário."), 409
+        return jsonify(error="Já existe uma sessão nesse horário."), 409
     moved = any(k in data for k in ("date", "start", "end"))
     if moved and merged["status"] != "cancelled" and _blocked(db, merged["date"], merged["start"], merged["end"]):
         return jsonify(error="Esse horário está marcado como indisponível. Libere-o na agenda antes de remarcar."), 409
     force = (request.get_json(silent=True) or {}).get("force")
     if "date" in data and data["date"] != current["date"] and is_closed(date.fromisoformat(data["date"])) and not force:
-        return jsonify(error="Esse é um dia sem atendimento (só há atendimento de terça a quinta).", closed_day=True), 409
+        return jsonify(error="Esse é um dia sem atendimento.", closed_day=True), 409
     if data.get("service_id") != current["service_id"] or "price_cents" in data:
         error = _fill_price(db, data)
         if error:
@@ -377,7 +502,7 @@ def update_appointment(appointment_id):
 def delete_appointment(appointment_id):
     db = get_db()
     if db.execute("SELECT 1 FROM session_protocols WHERE appointment_id = ?", (appointment_id,)).fetchone():
-        return jsonify(error="Esta consulta tem protocolo preenchido e não pode ser excluída."), 409
+        return jsonify(error="Esta sessão tem protocolo preenchido e não pode ser excluída."), 409
     db.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
     db.commit()
     return "", 204

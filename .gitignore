@@ -6,3 +6,7 @@ __pycache__/
 .pytest_cache/
 instance/
 *.db
+# vídeos de boas-vindas (arquivos grandes, passam do limite de 100 MB do GitHub)
+video_entrega/
+# configurações locais do Claude Code
+.claude/

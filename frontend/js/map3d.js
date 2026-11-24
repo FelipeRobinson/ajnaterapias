@@ -251,7 +251,7 @@ export async function createViewer(container, opts) {
     head: [new THREE.Vector3(0, 1.56, 0.02), new THREE.Vector3(0.25, 1.6, 0.75)],
   };
   // orelha e mão: enquadra pelos próprios pontos do corpo aberto (serve para os dois corpos)
-  const ANCHOR = { ear: ["TA17", 0.32], hand: ["IG4", 0.42] };
+  const ANCHOR = { ear: ["SJ17", 0.32], hand: ["LI4", 0.42] };
   function view(name) {
     const raw = ANCHOR[name] && defaults3d[ANCHOR[name][0]]?.[0];
     const a = raw && shapeVec(raw);

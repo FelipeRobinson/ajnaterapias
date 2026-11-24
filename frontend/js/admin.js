@@ -157,7 +157,7 @@
     updateRequestBadge(d.requests.length);
     $("#today-list").innerHTML = d.today.length
       ? d.today.map((a) => appointmentRow(a)).join("")
-      : '<p class="adm-empty">Nenhuma consulta hoje. 🌿</p>';
+      : '<p class="adm-empty">Nenhuma sessão hoje. 🌿</p>';
   }
 
   // ---------------------------------------------------------------- agenda
@@ -202,26 +202,31 @@
 
   const byTime = (rows) => rows.sort((x, y) => x.t.localeCompare(y.t)).map((r) => r.h).join("");
 
-  // Dias sem atendimento (segunda, sexta, sábado e domingo) e eventos fixos (Reiki Para Todos) vêm do servidor.
+  // Dias sem atendimento (domingo fixo; os outros a administração escolhe em ⚙️) e eventos da clínica vêm do servidor.
+  // Aniversários dos clientes (🎂) aparecem só aqui, para a administração.
   const wd = (d) => (d.getDay() + 6) % 7; // 0 = segunda
   const isClosedDay = (d) => (state.closedWeekdays || []).includes(wd(d));
+  const evTime = (ev) => (ev.start_time ? ` ${ev.start_time}${ev.end_time ? `–${ev.end_time}` : ""}` : "");
   const eventTag = (ev, big = false) =>
-    `<div class="ag-event ${big ? "ag-event--big" : ""}" title="${esc(ev.description)}">${ev.icon} <b>${esc(ev.title)}</b>${big ? `<span>${esc(ev.description)}</span>` : ""}</div>`;
+    `<div class="ag-event ${big ? "ag-event--big" : ""}" title="${esc(ev.description)}">${esc(ev.icon)} <b>${esc(ev.title)}</b>${esc(evTime(ev))}${big && ev.description ? `<span>${esc(ev.description)}</span>` : ""}</div>`;
+  const bdayTag = (b, big = false) =>
+    `<button class="ag-bday ${big ? "ag-bday--big" : ""}" data-open-patient="${b.patient_id}" type="button" title="Aniversário de ${esc(b.name)} (${b.age} anos) · abrir ficha">🎂 <b>${esc(big ? b.name : b.name.split(" ")[0])}</b>${big ? ` faz ${b.age} anos` : ""}</button>`;
   const closedTag = '<div class="ag-closed">🚫 Sem atendimento</div>';
 
   async function fetchRange(start, end) {
     const q = `from=${iso(start)}&to=${iso(end)}`;
-    const [{ items }, { items: blocks }, ev] = await Promise.all([
-      api(`/api/admin/appointments?${q}`), api(`/api/admin/blocks?${q}`), api(`/api/patient/events?${q}`)]);
+    const [{ items }, { items: blocks }, ev, bd] = await Promise.all([
+      api(`/api/admin/appointments?${q}`), api(`/api/admin/blocks?${q}`), api(`/api/patient/events?${q}`),
+      api(`/api/admin/birthdays?${q}`).catch(() => ({ items: [] }))]);
     state.closedWeekdays = ev.closed_weekdays;
-    return { items, blocks, events: ev.items };
+    return { items, blocks, events: ev.items, birthdays: bd.items };
   }
 
   async function loadAgenda() {
     const [start, end] = agRange();
     $("#week-label").textContent = agLabel(start, end);
     $$("[data-ag-view]").forEach((b) => b.classList.toggle("is-active", b.dataset.agView === state.agView));
-    const { items, blocks, events } = await fetchRange(start, end);
+    const { items, blocks, events, birthdays } = await fetchRange(start, end);
     state.weekItems = items;
     const today = iso(new Date());
     const box = $("#week-days");
@@ -231,8 +236,9 @@
       const blk = blocks.filter((b) => b.date === key);
       const closed = isClosedDay(day);
       const evs = events.filter((e) => e.date === key);
+      const bds = birthdays.filter((b) => b.date === key);
       // dia de evento (Reiki) não fica listrado de vermelho, mesmo sendo dia sem atendimento
-      return { key, closed, list: items.filter((a) => a.date === key), blk, evs,
+      return { key, closed, list: items.filter((a) => a.date === key), blk, evs, bds,
         off: (closed && !evs.length) || blk.some(fullDay) };
     };
     const openBtn = (key, label) => `<button class="ag-open" data-day-open="${key}" type="button" title="Abrir o dia">${label}</button>`;
@@ -240,7 +246,7 @@
     if (state.agView === "list") {
       box.innerHTML = Array.from({ length: 7 }, (_, i) => {
         const day = addDays(start, i);
-        const { key, list, blk, evs, closed, off } = dayData(day);
+        const { key, list, blk, evs, bds, closed, off } = dayData(day);
         const rows = byTime([...blk.map((b) => ({ t: b.start, h: blockRow(b) })), ...list.map((a) => ({ t: a.start, h: appointmentRow(a) }))]);
         return `
         <section class="adm-card adm-day ${key === today ? "adm-day--today" : ""} ${off ? "ag-off" : ""}">
@@ -250,7 +256,7 @@
             <button class="adm-btn adm-btn--link" data-block-on="${key}" type="button" style="margin-left:auto">⛔ Indisponível</button>
             <button class="adm-btn adm-btn--link" data-new-on="${key}" type="button">＋ Agendar</button>
           </div>
-          <div class="adm-list">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${rows || (closed ? "" : '<p class="adm-muted">Livre</p>')}</div>
+          <div class="adm-list">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${bds.map((b) => bdayTag(b, true)).join("")}${rows || (closed ? "" : '<p class="adm-muted">Livre</p>')}</div>
         </section>`;
       }).join("");
       return;
@@ -259,11 +265,11 @@
     if (state.agView === "week") {
       box.innerHTML = `<div class="ag-weekgrid">${Array.from({ length: 7 }, (_, i) => {
         const day = addDays(start, i);
-        const { key, list, blk, evs, closed, off } = dayData(day);
+        const { key, list, blk, evs, bds, closed, off } = dayData(day);
         const rows = byTime([...blk.map((b) => ({ t: b.start, h: blockRow(b, true) })), ...list.map((a) => ({ t: a.start, h: chip(a) }))]);
         return `<section class="ag-col ${key === today ? "is-today" : ""} ${off ? "ag-off" : ""}">
           <header data-day-open="${key}" title="Abrir o dia"><span>${WEEKDAYS[i]}</span><b>${day.getDate()}</b><small>${fmt(day, { month: "short", year: "numeric" })}</small></header>
-          <div class="ag-col__items">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${rows || (closed ? "" : '<p class="adm-muted">Livre</p>')}</div>
+          <div class="ag-col__items">${closed && !evs.length ? closedTag : ""}${evs.map((e) => eventTag(e)).join("")}${bds.map((b) => bdayTag(b)).join("")}${rows || (closed ? "" : '<p class="adm-muted">Livre</p>')}</div>
           <footer>
             <button class="adm-btn adm-btn--sm" data-day-open="${key}" type="button" title="Abrir o dia">🔍</button>
             <button class="adm-btn adm-btn--sm" data-new-on="${key}" type="button" title="Agendar">＋</button>
@@ -280,7 +286,7 @@
       ${WEEKDAYS.map((w) => `<div class="ag-month__wd">${w}</div>`).join("")}
       ${Array.from({ length: 42 }, (_, i) => {
         const day = addDays(start, i);
-        const { key, list, blk, evs, closed, off } = dayData(day);
+        const { key, list, blk, evs, bds, closed, off } = dayData(day);
         const active = list.filter((a) => a.status !== "cancelled");
         const offLabel = closed && evs.length ? "" : closed ? '<span class="ag-cell__off ag-cell__off--closed">🚫 Sem atendimento</span>'
           : off ? '<span class="ag-cell__off">⛔ Indisponível</span>'
@@ -288,7 +294,8 @@
         return `<div class="ag-cell ${day.getMonth() !== month ? "is-out" : ""} ${key === today ? "is-today" : ""} ${off ? "ag-off" : ""}" data-day-open="${key}">
           <span class="ag-cell__num">${day.getDate()}</span>
           ${offLabel}
-          ${evs.map((e) => `<span class="ag-cell__event" title="${esc(e.title)}">${e.icon} ${esc(e.title)}</span>`).join("")}
+          ${evs.map((e) => `<span class="ag-cell__event" title="${esc(e.title)}">${esc(e.icon)} ${esc(e.title)}</span>`).join("")}
+          ${bds.map((b) => `<span class="ag-cell__bday" title="Aniversário de ${esc(b.name)} (${b.age} anos)">🎂 ${esc(b.name.split(" ")[0])}</span>`).join("")}
           <div class="ag-cell__items">${active.slice(0, 3).map(chip).join("")}${active.length > 3 ? `<span class="ag-more">+${active.length - 3} mais</span>` : ""}</div>
           ${active.length ? `<span class="ag-cell__count">${active.length}</span>` : ""}
           <div class="ag-cell__act">
@@ -307,14 +314,14 @@
   async function openDay(key) {
     state.dayOpen = key;
     const day = fromIso(key);
-    const { items, blocks, events } = await fetchRange(day, day);
+    const { items, blocks, events, birthdays } = await fetchRange(day, day);
     state.dayItems = items;
     const closed = isClosedDay(day);
     const active = items.filter((a) => a.status !== "cancelled");
     $("#day-title").textContent = cap(fmt(day, { weekday: "long", day: "numeric", month: "long", year: "numeric" }));
     const counts = ["requested", "scheduled", "done", "cancelled"].map((s) => [s, items.filter((a) => a.status === s).length]).filter(([, n]) => n);
     $("#day-sub").innerHTML = (key === iso(new Date()) ? '<span class="adm-badge adm-badge--scheduled">Hoje</span> ' : "") +
-      (items.length ? counts.map(([s, n]) => `<span class="adm-badge adm-badge--${s}">${n} ${STATUS[s].toLowerCase()}</span>`).join(" ") : "Nenhuma consulta");
+      (items.length ? counts.map(([s, n]) => `<span class="adm-badge adm-badge--${s}">${n} ${STATUS[s].toLowerCase()}</span>`).join(" ") : "Nenhuma sessão");
 
     // linha do tempo
     const span = (DAY_TO - DAY_FROM) * 60;
@@ -327,7 +334,7 @@
     const blockEls = blocks.map((b) => `<div class="dv-item dv-block" style="${pos(b.start, b.end)}">
       ⛔ ${fullDay(b) ? "Dia inteiro" : `${esc(b.start)}–${esc(b.end)}`}${b.reason ? ` · ${esc(b.reason)}` : ""}
       <button class="adm-btn adm-btn--sm" data-block-del="${b.id}" type="button">Liberar</button></div>`).join("");
-    // consultas que se sobrepõem ficam lado a lado
+    // sessões que se sobrepõem ficam lado a lado
     const sorted = [...active].sort((a, b) => a.start.localeCompare(b.start));
     const lanes = [];
     const placed = sorted.map((a) => {
@@ -352,16 +359,17 @@
           <div class="dv-lane">${blockEls}${apptEls}${nowLine}</div>
         </div></div>
         <aside class="dv-side">
-          ${closed ? '<div class="ag-closed">🚫 Dia sem atendimento (só há atendimento de terça a quinta). Dá para agendar só como exceção.</div>' : ""}
+          ${closed ? '<div class="ag-closed">🚫 Dia sem atendimento. Dá para agendar só como exceção.</div>' : ""}
           ${events.map((e) => eventTag(e, true)).join("")}
-          <h3 class="mp-subtitle">Consultas do dia</h3>
-          <div class="adm-list">${sorted.map((a) => appointmentRow(a)).join("") || '<p class="adm-muted">Nenhuma consulta marcada.</p>'}</div>
+          ${birthdays.map((b) => bdayTag(b, true)).join("")}
+          <h3 class="mp-subtitle">Sessões do dia</h3>
+          <div class="adm-list">${sorted.map((a) => appointmentRow(a)).join("") || '<p class="adm-muted">Nenhuma sessão marcada.</p>'}</div>
           ${cancelled.length ? `<details class="dv-cancel"><summary>${cancelled.length} cancelada(s)</summary><div class="adm-list">${cancelled.map((a) => appointmentRow(a)).join("")}</div></details>` : ""}
         </aside>
       </div>`;
     const modal = $("#day-modal");
     if (!modal.open) modal.showModal();
-    // rola a linha do tempo até a primeira consulta (ou 8h)
+    // rola a linha do tempo até a primeira sessão (ou 8h)
     const first = sorted[0] ? toMin(sorted[0].start) : 8 * 60;
     $(".dv-scroll").scrollTop = Math.max(0, ((first - DAY_FROM * 60) / 60) * 64 - 24);
   }
@@ -387,7 +395,7 @@
     loadAgenda();
   }));
 
-  // Abrir o dia; consulta compacta -> janela com as ações; bloqueios.
+  // Abrir o dia; sessão compacta -> janela com as ações; bloqueios.
   document.addEventListener("click", async (e) => {
     const open = e.target.closest("[data-day-open]");
     if (open && !e.target.closest("button:not([data-day-open]), [data-appt-pick]")) {
@@ -437,20 +445,20 @@
       start: allDay ? "00:00" : data.start, end: allDay ? "23:59" : data.end };
     const r = await api("/api/admin/blocks", { method: "POST", body });
     toast(r.appointments_inside
-      ? `Marcado como indisponível. Atenção: já há ${r.appointments_inside} consulta(s) nesse período.`
+      ? `Marcado como indisponível. Atenção: já há ${r.appointments_inside} sessão(s) nesse período.`
       : "Marcado como indisponível.", Boolean(r.appointments_inside));
     state.cursor = fromIso(data.date);
     loadAgenda();
   });
 
-  // Ações nas consultas (funciona na visão geral e na agenda).
+  // Ações nas sessões (funciona na visão geral e na agenda).
   document.addEventListener("click", async (event) => {
     const btn = event.target.closest("[data-appt-done],[data-appt-cancel],[data-appt-delete],[data-appt-edit],[data-new-on],[data-appt-confirm],[data-appt-decline]");
     if (!btn) return;
     try {
       if (btn.dataset.apptConfirm) {
         await api(`/api/admin/appointments/${btn.dataset.apptConfirm}`, { method: "PATCH", body: { status: "scheduled" } });
-        toast("Consulta confirmada.");
+        toast("Sessão confirmada.");
         return refresh();
       }
       if (btn.dataset.apptDecline) {
@@ -467,21 +475,21 @@
       }
       if (btn.dataset.apptDone) {
         await api(`/api/admin/appointments/${btn.dataset.apptDone}`, { method: "PATCH", body: { status: "done" } });
-        toast("Consulta marcada como realizada.");
+        toast("Sessão marcada como realizada.");
       } else if (btn.dataset.apptCancel) {
-        if (!(await confirmAction("Cancelar consulta?", "O horário ficará livre na agenda.", "Cancelar consulta"))) return;
+        if (!(await confirmAction("Cancelar sessão?", "O horário ficará livre na agenda.", "Cancelar sessão"))) return;
         await api(`/api/admin/appointments/${btn.dataset.apptCancel}`, { method: "PATCH", body: { status: "cancelled" } });
-        toast("Consulta cancelada.");
+        toast("Sessão cancelada.");
       } else if (btn.dataset.apptDelete) {
-        if (!(await confirmAction("Excluir consulta?", "Ela será apagada do histórico. Isso não pode ser desfeito.", "Excluir"))) return;
+        if (!(await confirmAction("Excluir sessão?", "Ela será apagada do histórico. Isso não pode ser desfeito.", "Excluir"))) return;
         await api(`/api/admin/appointments/${btn.dataset.apptDelete}`, { method: "DELETE" });
-        toast("Consulta excluída.");
+        toast("Sessão excluída.");
       }
       refresh();
     } catch (err) { toast(err.message, true); }
   });
 
-  // Modal de consulta (nova ou remarcar)
+  // Modal de sessão (nova ou remarcar)
   const apptModal = $("#appointment-modal");
   const apptForm = $("#appointment-form");
 
@@ -496,7 +504,7 @@
     $(".adm-form__error", apptForm).textContent = "";
     apptForm.dataset.id = a.id || "";
     select.disabled = Boolean(a.id);
-    $("#appointment-modal-title").textContent = a.id ? "Remarcar consulta" : "Nova consulta";
+    $("#appointment-modal-title").textContent = a.id ? "Remarcar sessão" : "Nova sessão";
     select.value = a.patient_user_id || "";
     apptForm.elements.date.value = a.date || iso(new Date());
     apptForm.elements.start.value = a.start || "09:00";
@@ -548,7 +556,7 @@
       return await api(url, { method, body });
     } catch (err) {
       if (!err.data?.closed_day) throw err;
-      const ok = await confirmAction("Dia sem atendimento", "Só há atendimento de terça a quinta. Agendar mesmo assim, como exceção?", "Agendar mesmo assim");
+      const ok = await confirmAction("Dia sem atendimento", "Este dia está marcado como sem atendimento. Agendar mesmo assim, como exceção?", "Agendar mesmo assim");
       if (!ok) throw err;
       return api(url, { method, body: { ...body, force: true } });
     }
@@ -568,10 +576,10 @@
     if (id) {
       delete data.patient_user_id;
       await sendAppointment(`/api/admin/appointments/${id}`, "PATCH", data);
-      toast("Consulta remarcada.");
+      toast("Sessão remarcada.");
     } else {
       await sendAppointment("/api/admin/appointments", "POST", data);
-      toast("Consulta agendada.");
+      toast("Sessão agendada.");
     }
     state.cursor = fromIso(data.date || iso(new Date()));
     refresh();
@@ -599,7 +607,7 @@
         ${clientAvatar(p)}
         <div>
           <div class="adm-client__name">${esc(p.name)} ${p.social ? '<span class="social-badge" title="Participa do Ambulatório Social">🤝 Ambulatório Social</span>' : ""}</div>
-          <div class="adm-muted" style="font-size:.82rem">${p.appointments} consulta(s)</div>
+          <div class="adm-muted" style="font-size:.82rem">${p.appointments} sessão(s)</div>
         </div>
         <div class="adm-client__contact">${esc(p.email)}${p.phone ? `<br>${esc(p.phone)}` : ""}</div>
         <span class="adm-client__badge adm-badge adm-badge--${p.active ? "active" : "inactive"}">${p.active ? "Ativo" : "Desativado"}</span>
@@ -852,7 +860,7 @@
         <div class="adm-card pf-empty">
           <p class="pf-empty__icon">📋</p>
           <h3>Prontuário ainda não preenchido</h3>
-          <p class="adm-muted">A ficha fixa do paciente é preenchida uma vez, geralmente na primeira consulta, e pode ser editada depois.</p>
+          <p class="adm-muted">A ficha fixa do paciente é preenchida uma vez, geralmente na primeira sessão, e pode ser editada depois.</p>
           <button class="adm-btn adm-btn--primary" data-record-edit type="button">Preencher prontuário</button>
         </div>`;
     } else {
@@ -894,11 +902,11 @@
           <div class="pf-session__act">
             <button class="adm-btn adm-btn--sm ${p ? "" : "adm-btn--primary"}" data-protocol="${s.id}" data-patient="${state.patientId}" type="button">
               ${p ? "Ver / editar" : "Preencher"}</button>
-            ${p ? `<button class="adm-btn adm-btn--sm" data-print-patient="session" data-session="${s.id}" type="button" title="Imprimir / PDF desta consulta">🖨️ Imprimir</button>` : ""}
+            ${p ? `<button class="adm-btn adm-btn--sm" data-print-patient="session" data-session="${s.id}" type="button" title="Imprimir / PDF desta sessão">🖨️ Imprimir</button>` : ""}
           </div>
         </article>`;
     }).join("")}</div>`
-      : '<p class="adm-empty">Nenhuma consulta confirmada ou realizada ainda. Os protocolos aparecem aqui a cada sessão.</p>';
+      : '<p class="adm-empty">Nenhuma sessão confirmada ou realizada ainda. Os protocolos aparecem aqui a cada sessão.</p>';
   }
 
 
@@ -1011,7 +1019,7 @@
         <dt>Evolução da queixa</dt><dd>${evolution}</dd>
         ${avgDrop !== null ? `<dt>Alívio médio por sessão</dt><dd>${avgDrop} ponto(s) (antes → depois)</dd>` : ""}
         <dt>Protocolos preenchidos</dt><dd>${done.filter((s) => s.protocol).length} de ${done.length} sessões</dd>
-        <dt>Próximas consultas</dt><dd>${upcoming.length ? upcoming.map((s) => `${E(dateBR(s.date))} ${E(s.start)}`).join(", ") : "Nenhuma marcada"}</dd>
+        <dt>Próximas sessões</dt><dd>${upcoming.length ? upcoming.map((s) => `${E(dateBR(s.date))} ${E(s.start)}`).join(", ") : "Nenhuma marcada"}</dd>
       </dl>
       ${chart}
       ${techniques.length ? `<h3>Técnicas utilizadas</h3><p>${techniques.map(([t, n]) => `<span class="tag">${E(t)} · ${n}×</span>`).join(" ")}</p>` : ""}
@@ -1047,14 +1055,14 @@
       html = head + followupHtml(file);
     } else if (mode === "session") {
       const s = file.sessions.find((x) => x.id === Number(sessionId));
-      if (!s) return toast("Consulta não encontrada.", true);
-      title = "Ficha da consulta";
-      html = head + `<h2>📝 Consulta</h2>` + sessionHtml(s);
+      if (!s) return toast("Sessão não encontrada.", true);
+      title = "Prontuário da sessão";
+      html = head + `<h2>📝 Sessão</h2>` + sessionHtml(s);
     } else {
       title = "Prontuário completo";
       const withProtocol = sessions.filter((s) => s.protocol);
-      html = head + anamnese + followupHtml(file) + `<h2>📝 Consultas (${withProtocol.length} com protocolo)</h2>` +
-        (withProtocol.map(sessionHtml).join("") || '<p class="muted">Nenhuma consulta com protocolo ainda.</p>');
+      html = head + anamnese + followupHtml(file) + `<h2>📝 Sessões (${withProtocol.length} com protocolo)</h2>` +
+        (withProtocol.map(sessionHtml).join("") || '<p class="muted">Nenhuma sessão com protocolo ainda.</p>');
     }
     window.AjnaPrint.open({ title, subtitle: p.name, html, confidential: true });
   }
@@ -1065,7 +1073,7 @@
     $("#print-menu-sessions").innerHTML = list.length
       ? list.map((s) => `<button class="adm-btn adm-btn--sm" data-print-patient="session" data-session="${s.id}" type="button">
           📝 ${esc(dateBR(s.date))} · ${esc(s.start)}</button>`).join("")
-      : '<p class="adm-muted">Nenhuma consulta com protocolo preenchido ainda.</p>';
+      : '<p class="adm-muted">Nenhuma sessão com protocolo preenchido ainda.</p>';
     $("#print-menu").showModal();
   }
 
@@ -1084,7 +1092,7 @@
   async function openProtocol(appointmentId, patientId) {
     const [forms, file] = await Promise.all([getForms(), api(`/api/admin/patients/${patientId}/file`), loadPoints()]);
     const s = file.sessions.find((x) => x.id === Number(appointmentId));
-    if (!s) return toast("Consulta não encontrada.", true);
+    if (!s) return toast("Sessão não encontrada.", true);
     protocolForm.dataset.id = s.id;
     $("#protocol-title").textContent =
       `${file.patient.name} · ${cap(fmt(fromIso(s.date), { weekday: "short", day: "numeric", month: "short" }))}, ${s.start}`;
@@ -1110,7 +1118,11 @@
 
   document.addEventListener("click", (event) => {
     const open = event.target.closest("[data-open-patient]");
-    if (open) { state.pfTab = "record"; return show(`paciente-${open.dataset.openPatient}`); }
+    if (open) {
+      if ($("#day-modal").open) $("#day-modal").close();
+      state.pfTab = "record";
+      return show(`paciente-${open.dataset.openPatient}`);
+    }
     const proto = event.target.closest("[data-protocol]");
     if (proto) openProtocol(proto.dataset.protocol, proto.dataset.patient).catch((e) => toast(e.message, true));
   });
@@ -1228,6 +1240,10 @@
     return p ? `${p.code} · ${p.pinyin}` : code;
   };
   const merColor = (code) => mp.merById[code]?.color || "#6c5b73";
+  // Orelha: pontos INTERNOS (concha e face interna do trago) em verde; pontos ANTERIORES em azul.
+  const EAR_INNER = "#2f9e5b", EAR_FRONT = "#2f6fd1";
+  const isEarInner = (p) => /^(CO|TG3|TG4)/.test(p.intl_code || "");
+  const pointColor = (p) => (p.meridian === "OR" ? (isEarInner(p) ? EAR_INNER : EAR_FRONT) : merColor(p.meridian));
   const isBilateral = (p) => mp.merById[p.meridian]?.bilateral;
 
   // ---------- desenho do corpo (contorno anatômico simplificado, frente e costas)
@@ -1281,6 +1297,11 @@
           <text x="44" y="212">Trago</text><text x="128" y="270">Antítrago</text><text x="190" y="304">Lóbulo</text>
         </g>
         <text x="120" y="14" class="mp-view-label">ORELHA ESQUERDA · vale para as duas</text>
+        <g class="mp-ear-legend">
+          <rect x="4" y="22" width="78" height="30" rx="6"/>
+          <circle cx="13" cy="31" r="3.6" fill="#2f9e5b"/><text x="20" y="33.5">Internos (concha)</text>
+          <circle cx="13" cy="44" r="3.6" fill="#2f6fd1"/><text x="20" y="46.5">Anteriores</text>
+        </g>
       </g>`;
   }
 
@@ -1410,7 +1431,7 @@
     }
 
     const dots = visiblePoints().map((p) => {
-      const color = merColor(p.meridian);
+      const color = pointColor(p);
       const dim = (mp.filter && p.meridian !== mp.filter) || (mp.usage && !mp.usage[p.code]);
       const sel = mp.selected === p.code;
       const used = mp.usage?.[p.code];
@@ -1492,7 +1513,7 @@
         <ul class="mp-help">
           <li><b>Clique</b> num ponto para ver e editar localização, indicações e observações.</li>
           <li><b>Filtre</b> por meridiano para ver o trajeto e a lista de pontos.</li>
-          <li><b>Busque</b> pelo código (VB20) ou nome (Fengchi).</li>
+          <li><b>Busque</b> pelo código (GB20) ou nome (Fengchi).</li>
           <li><b>Destaque</b> os pontos já usados com um paciente.</li>
           <li><b>Corrija</b> a posição arrastando o ponto (botão “Ajustar posição”).</li>
         </ul>
@@ -1905,8 +1926,9 @@
   // ---------- bonequinho da sessão (frente, costas e orelha com os pontos marcados)
   const DOLL_VIEWS = [["front", "Frente"], ["back", "Costas"], ["ear", "Orelha"]];
 
-  function dollSvg(view, codes, editable) {
+  function dollSvg(view, codes, editable, vb) {
     const base = baseFor(view);
+    const box = vb || base;
     const sel = new Set(codes);
     const pts = mp.points.filter((p) => p.view === view && (editable || sel.has(p.code)));
     pts.sort((a, b) => (sel.has(a.code) ? 1 : 0) - (sel.has(b.code) ? 1 : 0)); // marcados por cima
@@ -1914,26 +1936,35 @@
     const big = view === "ear" ? 5 : 6.5;
     const dots = pts.map((p) => {
       const on = sel.has(p.code);
-      const color = merColor(p.meridian);
+      const color = pointColor(p);
+      const idle = view === "ear" ? (isEarInner(p) ? "#9fd4b4" : "#9db8ea") : "#bfa9c9";
       const one = (x) => `
         <g class="doll-pt ${on ? "is-on" : ""}" data-doll-code="${esc(p.code)}">
           <title>${esc(p.code)} · ${esc(p.pinyin)}</title>
           ${editable ? `<circle cx="${x}" cy="${p.y}" r="${view === "ear" ? 6 : 7}" class="doll-hit"/>` : ""}
-          <circle cx="${x}" cy="${p.y}" r="${on ? big : small}" fill="${on ? color : "#bfa9c9"}" class="doll-dot"/>
+          <circle cx="${x}" cy="${p.y}" r="${on ? big : small}" fill="${on ? color : idle}" class="doll-dot"/>
           ${on ? `<text x="${x + big + 2}" y="${p.y + 3}" class="doll-label">${esc(p.code.replace("OR-", ""))}</text>` : ""}
         </g>`;
       return one(p.x) + (isBilateral(p) ? one(300 - p.x) : "");
     }).join("");
-    return `<svg viewBox="0 0 ${base.w} ${base.h}" class="doll-svg doll-svg--${view}" role="img"
+    return `<svg viewBox="${box.x} ${box.y} ${box.w} ${box.h}" class="doll-svg doll-svg--${view}" role="img"
       aria-label="${view === "ear" ? "Orelha" : view === "front" ? "Corpo de frente" : "Corpo de costas"}">${bodySvg(view)}${dots}</svg>`;
   }
 
-  function dollHtml(codes, editable) {
+  function dollHtml(codes, editable, zoom = {}) {
     const has = (v) => codes.some((c) => mp.byCode[c]?.view === v);
     const views = DOLL_VIEWS.filter(([v]) => editable || v !== "ear" || has("ear"));
+    const tools = () => (editable ? `
+        <div class="doll-zoom" role="group" aria-label="Zoom">
+          <button type="button" data-doll-zoom="in" title="Aproximar">＋</button>
+          <button type="button" data-doll-zoom="out" title="Afastar">−</button>
+          <button type="button" data-doll-zoom="reset" title="Ver inteiro">⟲</button>
+          <button type="button" data-doll-zoom="big" title="Ampliar / reduzir a figura">⛶</button>
+        </div>` : "");
     return views.map(([v, label]) => `
-      <figure class="doll-panel">
-        ${dollSvg(v, codes, editable)}
+      <figure class="doll-panel ${zoom.big === v ? "is-big" : ""} ${zoom[v] ? "is-zoomed" : ""}" data-doll-view="${v}">
+        ${tools()}
+        ${dollSvg(v, codes, editable, zoom[v])}
         <figcaption>${label}${codes.filter((c) => mp.byCode[c]?.view === v).length ? ` · ${codes.filter((c) => mp.byCode[c]?.view === v).length}` : ""}</figcaption>
       </figure>`).join("");
   }
@@ -1941,13 +1972,85 @@
   function refreshDoll(box) {
     const codes = $$(".pf-pchip", box).map((c) => c.dataset.code);
     const doll = $(".pf-doll__body", box);
-    if (doll) doll.innerHTML = dollHtml(codes, true);
+    if (doll) doll.innerHTML = dollHtml(codes, true, doll._zoom || {});
   }
+
+  // ---------- zoom no boneco do protocolo: botões ＋ − ⟲ ⛶, rodinha do mouse e arrastar para mover
+  const dollState = (fig) => {
+    const holder = fig.closest(".pf-doll__body");
+    holder._zoom = holder._zoom || {};
+    return holder._zoom;
+  };
+  const getVb = (svg) => { const [x, y, w, h] = svg.getAttribute("viewBox").split(/\s+/).map(Number); return { x, y, w, h }; };
+  function setDollVb(fig, vb) {
+    const view = fig.dataset.dollView;
+    const base = baseFor(view);
+    const w = Math.min(base.w, Math.max(base.w / 8, vb.w));
+    const h = w * (base.h / base.w);
+    const x = Math.min(base.x + base.w - w, Math.max(base.x, vb.x));
+    const y = Math.min(base.y + base.h - h, Math.max(base.y, vb.y));
+    $("svg", fig).setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+    dollState(fig)[view] = w >= base.w ? null : { x, y, w, h };
+    fig.classList.toggle("is-zoomed", w < base.w);
+  }
+  function zoomDoll(fig, factor, cx, cy) {
+    const vb = getVb($("svg", fig));
+    const px = cx ?? vb.x + vb.w / 2, py = cy ?? vb.y + vb.h / 2;
+    setDollVb(fig, { x: px - (px - vb.x) / factor, y: py - (py - vb.y) / factor, w: vb.w / factor, h: vb.h / factor });
+  }
+  const dollPoint = (svg, e) => {
+    const r = svg.getBoundingClientRect(), vb = getVb(svg);
+    return { x: vb.x + ((e.clientX - r.left) / r.width) * vb.w, y: vb.y + ((e.clientY - r.top) / r.height) * vb.h };
+  };
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".pf-doll [data-doll-zoom]");
+    if (!b) return;
+    const fig = b.closest(".doll-panel");
+    const z = b.dataset.dollZoom;
+    if (z === "in") zoomDoll(fig, 1.6);
+    else if (z === "out") zoomDoll(fig, 1 / 1.6);
+    else if (z === "reset") setDollVb(fig, baseFor(fig.dataset.dollView));
+    else if (z === "big") {
+      const on = !fig.classList.contains("is-big");
+      fig.parentElement.querySelectorAll(".doll-panel.is-big").forEach((f) => f.classList.remove("is-big"));
+      fig.classList.toggle("is-big", on);
+      dollState(fig).big = on ? fig.dataset.dollView : null;
+      if (on) fig.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  });
+  // rodinha do mouse: aproxima sempre; afasta só se já estiver com zoom (para não travar a rolagem da página)
+  document.addEventListener("wheel", (e) => {
+    const svg = e.target.closest?.(".pf-doll .doll-svg");
+    if (!svg) return;
+    const fig = svg.closest(".doll-panel");
+    if (e.deltaY > 0 && !fig.classList.contains("is-zoomed")) return;
+    e.preventDefault();
+    const pt = dollPoint(svg, e);
+    zoomDoll(fig, e.deltaY < 0 ? 1.25 : 0.8, pt.x, pt.y);
+  }, { passive: false });
+  let dollDrag = null;
+  document.addEventListener("pointerdown", (e) => {
+    const svg = e.target.closest?.(".pf-doll .doll-svg");
+    if (!svg || !svg.closest(".doll-panel").classList.contains("is-zoomed")) return;
+    dollDrag = { svg, fig: svg.closest(".doll-panel"), sx: e.clientX, sy: e.clientY, vb: getVb(svg), moved: false };
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!dollDrag) return;
+    const dx = e.clientX - dollDrag.sx, dy = e.clientY - dollDrag.sy;
+    if (!dollDrag.moved && Math.hypot(dx, dy) < 5) return;
+    dollDrag.moved = true;
+    const k = dollDrag.vb.w / dollDrag.svg.getBoundingClientRect().width;
+    setDollVb(dollDrag.fig, { ...dollDrag.vb, x: dollDrag.vb.x - dx * k, y: dollDrag.vb.y - dy * k });
+  });
+  document.addEventListener("pointerup", () => {
+    if (dollDrag?.moved) { const f = dollDrag.fig; f.dataset.dragged = "1"; setTimeout(() => delete f.dataset.dragged, 0); }
+    dollDrag = null;
+  });
 
   // clique no boneco do protocolo marca/desmarca o ponto
   document.addEventListener("click", (e) => {
     const dot = e.target.closest(".pf-doll [data-doll-code]");
-    if (!dot) return;
+    if (!dot || dot.closest(".doll-panel")?.dataset.dragged) return;
     const box = dot.closest(".pf-points");
     const code = dot.dataset.dollCode;
     const chip = $(`.pf-pchip[data-code="${CSS.escape(code)}"]`, box);
@@ -1963,7 +2066,7 @@
       <div class="pf-points" data-points="${f.key}">
         <div class="pf-points__chips">${chips}</div>
         <div class="pf-points__add">
-          <input type="text" list="acupoint-list" placeholder="Digite o código ou nome (ex.: VB20, Hegu, Shenmen) e tecle Enter" autocomplete="off">
+          <input type="text" list="acupoint-list" placeholder="Digite o código ou nome (ex.: GB20, Hegu, Shenmen) e tecle Enter" autocomplete="off">
           <button class="adm-btn adm-btn--sm" data-points-add type="button">Adicionar</button>
           <select class="adm-select adm-btn--sm" data-insert-combo aria-label="Inserir combinação"><option value="">＋ Inserir combinação…</option></select>
         </div>
@@ -1988,7 +2091,7 @@
     const raw = input.value.trim();
     const code = raw.toUpperCase().split(/\s|·/)[0];
     const hit = mp.byCode[code] || mp.points.find((p) => p.pinyin.toUpperCase() === raw.toUpperCase());
-    if (!hit) { toast("Ponto não encontrado. Use o código (ex.: VB20) ou o nome.", true); return; }
+    if (!hit) { toast("Ponto não encontrado. Use o código (ex.: GB20) ou o nome.", true); return; }
     if (!$(`.pf-pchip[data-code="${CSS.escape(hit.code)}"]`, box)) {
       $(".pf-points__chips", box).insertAdjacentHTML("beforeend", pointChip(hit.code, true));
     }
@@ -2047,6 +2150,7 @@
       selectPoint(code, { focus: true });
     },
     async reloadMapPoints() { await loadPoints(true); },
+    reloadAgenda() { if (state.view === "agenda") loadAgenda(); },
   };
 
   // Protocolo: inserir uma combinação salva (🧺) de uma vez

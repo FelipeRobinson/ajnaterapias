@@ -51,8 +51,8 @@ def package_usage(db, package_id):
 
 
 def apply_package(db, appointment_id):
-    """Consulta realizada: se o cliente tem pacote com saldo (da mesma terapia, ou pacote sem terapia),
-    a sessão passa a ser descontada dele. Chamado pela agenda quando a consulta vira 'realizada'."""
+    """Sessão realizada: se o cliente tem pacote com saldo (da mesma terapia, ou pacote sem terapia),
+    a sessão passa a ser descontada dele. Chamado pela agenda quando a sessão vira 'realizada'."""
     a = db.execute("SELECT id, patient_user_id, service_id, package_id FROM appointments WHERE id = ?",
                    (appointment_id,)).fetchone()
     if not a or a["package_id"]:
@@ -192,7 +192,7 @@ def sessions():
 @finance_bp.get("/finance/receivable")
 @_admin
 def receivable():
-    """Tudo que está em aberto: consultas realizadas (ou já passadas) sem pagamento completo."""
+    """Tudo que está em aberto: sessões realizadas (ou já passadas) sem pagamento completo."""
     rows = get_db().execute(
         SESSION_SQL + " WHERE a.status = 'done' AND a.package_id IS NULL ORDER BY a.date, a.start").fetchall()
     items = [r for r in map(session_row, rows) if r["due_cents"] > 0]
@@ -238,7 +238,7 @@ def create_payment():
     if appointment_id:
         a = db.execute("SELECT id, patient_user_id FROM appointments WHERE id = ?", (appointment_id,)).fetchone()
         if not a:
-            return jsonify(error="Consulta não encontrada."), 404
+            return jsonify(error="Sessão não encontrada."), 404
         patient_id = a["patient_user_id"]
     if patient_id and not db.execute("SELECT 1 FROM users WHERE id = ? AND role = 'patient'", (patient_id,)).fetchone():
         return jsonify(error="Cliente não encontrado."), 404

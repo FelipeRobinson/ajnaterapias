@@ -27,6 +27,8 @@ def create_app(test_config=None):
         SMTP_USER=os.getenv("SMTP_USER", ""),
         SMTP_PASSWORD=os.getenv("SMTP_PASSWORD", ""),
         MAIL_FROM=os.getenv("MAIL_FROM", ""),
+        # Vídeos de boas-vindas mostrados no primeiro login (pasta fora do git, arquivos grandes).
+        ONBOARDING_DIR=os.getenv("ONBOARDING_DIR", str(project_root / "video_entrega")),
     )
     if test_config:
         app.config.update(test_config)
